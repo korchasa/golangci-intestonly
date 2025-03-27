@@ -1,18 +1,18 @@
 # Intestonly Linter
 
-A Go static code analyzer that identifies declarations in non-test files that are only used in test files. This helps improve code quality by detecting code that can be safely removed.
+A Go static code analyzer that identifies declarations in non-test files that are only used in test files. This helps improve code quality by detecting code that can be safely removed from your production codebase.
 
 ## Overview
 
-The Intestonly linter follows the principle that code exclusively used for testing represents unnecessary bloat in production code. It analyzes your Go codebase to find declarations (functions, types, constants, variables) that are candidates for deletion because they're not used in production.
+The Intestonly linter follows the principle that code exclusively used for testing represents unnecessary bloat in production. It analyzes your Go codebase to find declarations (functions, types, constants, variables) that are candidates for deletion because they're not used in actual production code.
 
 ```go
-// Non-test file with code only used in tests - CAN BE REMOVED!
+// Non-test file (main.go) with code only used in tests
 func unusedFunction() string { // This is dead code for production
   return "test"
 }
 
-// In test file
+// In test file (main_test.go)
 func TestSomething(t *testing.T) {
   result := unusedFunction() // Only usage is here
   assert.Equal(t, "test", result)
@@ -25,14 +25,155 @@ func TestSomething(t *testing.T) {
 go install github.com/korchasa/golangci-intestonly/cmd/go-intestonly@latest
 ```
 
-## golangci-lint Integration
+## Usage
 
-Add to your `.golangci.yml`:
+The Intestonly linter can be used in multiple ways depending on your workflow preferences:
+
+### Direct Usage
+
+Run the linter directly on your codebase:
+
+```bash
+# Analyze a specific package
+go-intestonly ./pkg/...
+
+# Analyze the current directory
+go-intestonly .
+
+# Show more details with context (3 lines)
+go-intestonly -c=3 ./...
+
+# Output in JSON format
+go-intestonly -json ./...
+```
+
+### golangci-lint Integration
+
+Intestonly is not yet included in the standard golangci-lint distribution. To integrate it, use the plugin approach:
+
+1. Create a plugin file in your project:
+
+```go
+// tools/golangci/intestonly/plugin.go
+package main
+
+import (
+	_ "github.com/korchasa/golangci-intestonly/pkg/golinters/intestonly" // Import the linter
+)
+```
+
+2. Configure `.golangci.yml` to load the plugin:
 
 ```yaml
+linters-settings:
+  custom:
+    intestonly:
+      path: tools/golangci/intestonly/plugin.so
+      description: Checks for code that is only used in tests
+      original-url: github.com/korchasa/golangci-intestonly
+
 linters:
   enable:
     - intestonly
+```
+
+3. Build the plugin:
+
+```bash
+cd tools/golangci/intestonly
+go build -buildmode=plugin -o plugin.so plugin.go
+```
+
+After setup, run as usual:
+
+```bash
+golangci-lint run
+```
+
+### CI/CD Pipeline Integration
+
+Add to your GitHub Actions workflow:
+
+```yaml
+- name: Check for test-only code
+  run: |
+    go install github.com/korchasa/golangci-intestonly/cmd/go-intestonly@latest
+    go-intestonly ./...
+```
+
+Or in your GitLab CI:
+
+```yaml
+lint:
+  script:
+    - go install github.com/korchasa/golangci-intestonly/cmd/go-intestonly@latest
+    - go-intestonly ./...
+```
+
+### Pre-commit Hook
+
+Create a pre-commit hook to check before committing:
+
+```bash
+#!/bin/sh
+go-intestonly ./...
+```
+
+### Using with Go Commands
+
+Run as part of your test workflow:
+
+```bash
+go test ./... && go-intestonly ./...
+```
+
+## Practical Examples
+
+### Example Output
+
+When the linter detects code only used in tests, it produces output like this:
+
+```
+/path/to/your/project/utils.go:15:1: function 'helperFunction' is only used in tests
+/path/to/your/project/models.go:42:1: type 'TestModel' is only used in tests
+/path/to/your/project/constants.go:8:5: const 'testOnlyConstant' is only used in tests
+```
+
+### Real-world Scenario
+
+Consider this example where a utility function is only referenced in tests:
+
+```go
+// main.go
+package main
+
+func main() {
+    // Production code
+}
+
+func formatData(data string) string {
+    // This function is never used in production code
+    return "[" + data + "]"
+}
+
+// main_test.go
+package main
+
+import "testing"
+
+func TestFormatting(t *testing.T) {
+    result := formatData("test")
+    if result != "[test]" {
+        t.Errorf("Expected [test], got %s", result)
+    }
+}
+```
+
+Running the linter will identify `formatData` as test-only code:
+
+```bash
+$ go-intestonly .
+/path/to/your/project/main.go:8:1: function 'formatData' is only used in tests
 ```
 
 ## Implementation Details
