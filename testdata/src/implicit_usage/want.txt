@@ -1,0 +1,2 @@
+# The ImplicitlyUsedFunction should not be reported as test-only
+# because it's mentioned in string literals in non-test code

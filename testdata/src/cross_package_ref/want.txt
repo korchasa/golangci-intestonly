@@ -1,0 +1,1 @@
+main.go:9: identifier "ExportedFuncOnlyTest" is only used in test files but is not part of test files

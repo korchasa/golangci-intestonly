@@ -17,4 +17,13 @@ func TestAll(t *testing.T) {
 
 	testdata := filepath.Join(filepath.Dir(filepath.Dir(filepath.Dir(wd))), "testdata")
 	analysistest.Run(t, testdata, intestonly.Analyzer, "p")
+
+	// Test for cross-package references
+	analysistest.Run(t, testdata, intestonly.Analyzer, "cross_package_ref", "cross_package_user")
+
+	// Test for implicit usage in string literals and comments
+	analysistest.Run(t, testdata, intestonly.Analyzer, "string_reference")
+
+	// Test for implicit usage detection
+	analysistest.Run(t, testdata, intestonly.Analyzer, "implicit_usage")
 }

@@ -27,8 +27,22 @@ func main() {
 
 	// Load the packages
 	cfg := &packages.Config{
-		Mode:  packages.LoadAllSyntax,
-		Tests: true,
+		Mode: packages.NeedName |
+			packages.NeedFiles |
+			packages.NeedCompiledGoFiles |
+			packages.NeedImports |
+			packages.NeedTypes |
+			packages.NeedTypesSizes |
+			packages.NeedSyntax |
+			packages.NeedTypesInfo |
+			packages.NeedDeps,
+		Tests:     true,
+		ParseFile: nil,
+		Logf: func(format string, args ...interface{}) {
+			if false { // Установите в true для отладки
+				log.Printf(format, args...)
+			}
+		},
 	}
 
 	pkgs, err := packages.Load(cfg, args...)
@@ -42,8 +56,20 @@ func main() {
 		log.Fatalf("Error running analyzer: %v", err)
 	}
 
-	// Print results
+	// Инициализируем exitCode здесь
 	exitCode := 0
+
+	// Печатаем любые ошибки, связанные с загрузкой пакетов
+	for _, pkg := range pkgs {
+		if len(pkg.Errors) > 0 {
+			for _, err := range pkg.Errors {
+				log.Printf("Error loading package %s: %v", pkg.ID, err)
+			}
+			exitCode = 1
+		}
+	}
+
+	// Print results
 	for _, act := range results.Roots {
 		if act.Err != nil {
 			log.Printf("Error analyzing %s: %v", act.Package.ID, act.Err)
