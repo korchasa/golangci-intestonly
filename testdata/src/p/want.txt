@@ -1,0 +1,9 @@
+p.go:5: identifier "helperFunction" is only used in test files but is not part of test files
+true_positives.go:4: identifier "testOnlyFunction" is only used in test files but is not part of test files
+true_positives.go:9: identifier "TestOnlyType" is only used in test files but is not part of test files
+true_positives.go:14: identifier "testOnlyConstant" is only used in test files but is not part of test files
+false_negatives.go:5: identifier "reflectionFunction" is only used in test files but is not part of test files
+false_negatives.go:12: identifier "testMethod" is only used in test files but is not part of test files
+
+# Note: test_helpers.go contains test helper functions and types that are intentionally used only in tests
+# These should not be flagged by the linter as they are meant to be test-only code
