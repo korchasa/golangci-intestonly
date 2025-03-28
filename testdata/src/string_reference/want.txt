@@ -1,4 +1,0 @@
-# All functions should not be reported as test-only
-# StringRefFunction is mentioned in string literals
-# ReflectionRefFunction is called via reflection
-# CommentRefFunction is mentioned in comments

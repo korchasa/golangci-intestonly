@@ -1,0 +1,8 @@
+---
+description: How to check project
+globs: 
+alwaysApply: false
+---
+- run all tests (`go test -v ./...`)
+- linter (`golangci-lint run -v --timeout 3m --fix`)
+- check on the real project `~/www/oma`, then recheck the found errors using `grep`.

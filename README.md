@@ -248,19 +248,29 @@ The analyzer includes special handling to:
 - Analyze cross-package references
 - Detect usage in string literals and comments
 
-### Test Coverage
+## Test Cases
 
-The analyzer has been tested against various scenarios:
+The following table shows all test cases with their paths in the repository:
 
-| Category | Description | Handling |
-|----------|-------------|----------|
-| True Positives | Functions, types, and constants only used in tests | Detected ✓ |
-| False Positives | Items used in both test and non-test files | Excluded ✓ |
-| Edge Cases | Test helpers and utility functions | Intelligently filtered ✓ |
-| False Negatives | Items used through reflection or type assertions | Detected ✓ |
-| Nested Structures | Inner types, methods, embedded types | Properly analyzed ✓ |
-| Interfaces | Interface types, methods, and type aliases | Correctly handled ✓ |
-| Cross-Package | References across package boundaries | Tracked and analyzed ✓ |
+| Test Category | Description | Path |
+|---------------|-------------|------|
+| Basic Test Cases | Core scenarios for test-only declarations | `testdata/src/basic_test_cases/` |
+| True Positives | Code that should be detected as test-only | `testdata/src/true_positives/` |
+| False Positives | Code that is used in both contexts | `testdata/src/false_positives/` |
+| Edge Cases | Edge cases for detection | `testdata/src/edge_cases/` |
+| False Negatives | Cases that should not be detected | `testdata/src/false_negatives/` |
+| Nested Structures | Complex nested types | `testdata/src/nested_structures/` |
+| Interfaces | Interface implementations | `testdata/src/interfaces/` |
+| Test Helpers | Test helper functions | `testdata/src/test_helpers/` |
+| Cross-Package Reference | Export and import across packages | `testdata/src/cross_package_ref/` |
+| Implicit Usage | Implicit code usage detection | `testdata/src/implicit_usage/` |
+| String Reference | Detection in string literals | `testdata/src/string_reference/` |
+| Improved Detection | Enhanced detection algorithms | `testdata/src/improved_detection/` |
+| Type Embedding | Detection of test-only code through embedded types | `testdata/src/type_embedding/` |
+| Interface Implementation | Detection of test-only interfaces and implementations | `testdata/src/interface_implementation/` |
+| Reflection Usage | Detection of test-only code used through reflection | `testdata/src/reflection_usage/` |
+| Registry Pattern | Detection of test-only code used in registries | `testdata/src/registry_pattern/` |
+| Variable Shadowing | Detection of test-only code with shadowed identifiers | `testdata/src/variable_shadowing/` |
 
 ## Project Structure
 

@@ -1,6 +1,7 @@
 package intestonly_test
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -18,28 +19,63 @@ func setupTestdata() string {
 	return filepath.Join(filepath.Dir(filepath.Dir(filepath.Dir(wd))), "testdata")
 }
 
-// TestRealLinter tests the real linter functionality
-// without dependency on hardcoded identifiers
-func TestRealLinter(t *testing.T) {
-	t.Skip("Skipping due to the need to fix linter functionality")
+// getTestDirectories returns all test directories in testdata/src
+// that contain Go files and are suitable for individual test runs
+func getTestDirectories() ([]string, error) {
+	testdata := setupTestdata()
+	srcDir := filepath.Join(testdata, "src")
+
+	entries, err := os.ReadDir(srcDir)
+	if err != nil {
+		panic(err)
+	}
+
+	var dirs []string
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		dirPath := filepath.Join(srcDir, entry.Name())
+		hasGoFiles := false
+
+		files, err := os.ReadDir(dirPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read directory %s: %v", dirPath, err)
+		}
+
+		for _, file := range files {
+			if !file.IsDir() {
+				if filepath.Ext(file.Name()) == ".go" {
+					hasGoFiles = true
+				}
+			}
+		}
+
+		// Directory must have Go files
+		if hasGoFiles {
+			dirs = append(dirs, entry.Name())
+		}
+	}
+
+	return dirs, nil
 }
 
-// TestCrossPackage tests cross-references between packages
-func TestCrossPackage(t *testing.T) {
+// TestAllCases runs all test cases by automatically iterating through all test directories
+func TestAllCases(t *testing.T) {
 	testdata := setupTestdata()
-	analysistest.Run(t, testdata, intestonly.Analyzer, "cross_package_ref", "cross_package_user")
-}
 
-// TestStringReference tests string reference analysis
-func TestStringReference(t *testing.T) {
-	testdata := setupTestdata()
-	analysistest.Run(t, testdata, intestonly.Analyzer, "string_reference")
-}
+	// Get all test directories
+	testDirs, err := getTestDirectories()
+	if err != nil {
+		t.Fatalf("failed to get test directories: %v", err)
+	}
 
-// TestImplicitUsage tests implicit usage analysis
-func TestImplicitUsage(t *testing.T) {
-	testdata := setupTestdata()
-	analysistest.Run(t, testdata, intestonly.Analyzer, "implicit_usage")
+	for _, dir := range testDirs {
+		t.Run(dir, func(t *testing.T) {
+			analysistest.Run(t, testdata, intestonly.Analyzer, dir)
+		})
+	}
 }
 
 // TestConfiguration tests that configuration works correctly
