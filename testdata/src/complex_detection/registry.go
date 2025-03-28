@@ -5,11 +5,11 @@ import (
 	"sync"
 )
 
-// Handler - тип функции-обработчика
+// Handler - handler function type
 // want "identifier .Handler. is only used in test files but is not part of test files"
 type Handler func(data interface{}) (interface{}, error)
 
-// Registry - глобальный реестр обработчиков
+// Registry - global handler registry
 // want "identifier .Registry. is only used in test files but is not part of test files"
 var Registry = struct {
 	sync.RWMutex
@@ -18,7 +18,7 @@ var Registry = struct {
 	handlers: make(map[string]Handler),
 }
 
-// RegisterHandler регистрирует обработчик в реестре
+// RegisterHandler registers a handler in the registry
 // want "identifier .RegisterHandler. is only used in test files but is not part of test files"
 func RegisterHandler(name string, handler Handler) {
 	Registry.Lock()
@@ -26,7 +26,7 @@ func RegisterHandler(name string, handler Handler) {
 	Registry.handlers[name] = handler
 }
 
-// GetHandler возвращает обработчик по имени
+// GetHandler returns a handler by name
 // want "identifier .GetHandler. is only used in test files but is not part of test files"
 func GetHandler(name string) (Handler, error) {
 	Registry.RLock()
@@ -38,7 +38,7 @@ func GetHandler(name string) (Handler, error) {
 	return handler, nil
 }
 
-// StringHandler обрабатывает строковые данные
+// StringHandler processes string data
 // want "identifier .StringHandler. is only used in test files but is not part of test files"
 func StringHandler(data interface{}) (interface{}, error) {
 	if str, ok := data.(string); ok {
@@ -47,7 +47,7 @@ func StringHandler(data interface{}) (interface{}, error) {
 	return nil, fmt.Errorf("expected string, got %T", data)
 }
 
-// IntHandler обрабатывает целочисленные данные
+// IntHandler processes integer data
 // want "identifier .IntHandler. is only used in test files but is not part of test files"
 func IntHandler(data interface{}) (interface{}, error) {
 	if num, ok := data.(int); ok {
@@ -56,7 +56,7 @@ func IntHandler(data interface{}) (interface{}, error) {
 	return nil, fmt.Errorf("expected int, got %T", data)
 }
 
-// ExecuteHandler выполняет обработчик по имени
+// ExecuteHandler executes a handler by name
 // want "identifier .ExecuteHandler. is only used in test files but is not part of test files"
 func ExecuteHandler(name string, data interface{}) (interface{}, error) {
 	handler, err := GetHandler(name)
@@ -66,7 +66,7 @@ func ExecuteHandler(name string, data interface{}) (interface{}, error) {
 	return handler(data)
 }
 
-// Plugin представляет плагин с набором обработчиков
+// Plugin represents a plugin with a set of handlers
 // want "identifier .Plugin. is only used in test files but is not part of test files"
 type Plugin struct {
 	Name      string
@@ -74,7 +74,7 @@ type Plugin struct {
 	IsEnabled bool
 }
 
-// RegisterPlugin регистрирует все обработчики из плагина
+// RegisterPlugin registers all handlers from a plugin
 // want "identifier .RegisterPlugin. is only used in test files but is not part of test files"
 func RegisterPlugin(plugin Plugin) {
 	if !plugin.IsEnabled {
@@ -87,7 +87,7 @@ func RegisterPlugin(plugin Plugin) {
 }
 
 func init() {
-	// Регистрируем базовые обработчики при инициализации пакета
+	// Register basic handlers during package initialization
 	RegisterHandler("string", StringHandler)
 	RegisterHandler("int", IntHandler)
 }

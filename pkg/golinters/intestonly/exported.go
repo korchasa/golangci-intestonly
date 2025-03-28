@@ -99,7 +99,7 @@ func applyExportedIdentifierHeuristics(result *AnalysisResult, config *Config) {
 		}
 
 		// Case 5: Exported constants and variables used as public API
-		if declInfo.IsMethod == false && (isConstantName(declName) || isVariableName(declName)) {
+		if !declInfo.IsMethod && (isConstantName(declName) || isVariableName(declName)) {
 			// Consider exported constants and variables potentially used by API consumers
 			if config.ConsiderExportedConstantsUsed {
 				if _, exists := result.NonTestUsages[declName]; !exists {

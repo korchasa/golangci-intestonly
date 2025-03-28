@@ -25,7 +25,7 @@ func run(pass *analysis.Pass) (interface{}, error) {
 	// Create config from optional settings
 	config := getConfig(pass)
 
-	// Для отладки
+	// For debugging
 	if config.Debug {
 		fmt.Println("Running intestonly analyzer on package:", pass.Pkg.Path())
 		fmt.Println("Total files:", len(pass.Files))
@@ -33,29 +33,6 @@ func run(pass *analysis.Pass) (interface{}, error) {
 			fileName := pass.Fset.File(f.Pos()).Name()
 			fmt.Printf("File: %s (isTest: %v)\n", fileName, isTestFile(fileName, config))
 		}
-	}
-
-	// Special case for complex_detection and improved_detection packages
-	if pass.Pkg != nil && (pass.Pkg.Path() == "complex_detection" || pass.Pkg.Path() == "improved_detection") {
-		config.ReportExplicitTestCases = true
-		// Unified system handles all types of analysis now
-		config.EnableTypeEmbeddingAnalysis = true
-		config.EnableReflectionAnalysis = true
-		config.EnableRegistryPatternDetection = true
-		config.ConsiderReflectionRisky = true
-
-		// Enable robust dependency analysis features
-		config.EnableCallGraphAnalysis = true
-		config.EnableInterfaceImplementationDetection = true
-		config.EnableRobustCrossPackageAnalysis = true
-		config.EnableExportedIdentifierHandling = false // Disable for test packages to detect all test-only exports
-		config.ConsiderExportedConstantsUsed = false    // Disable for test packages
-	}
-
-	// Special handling for basic test package 'p'
-	if pass.Pkg != nil && pass.Pkg.Path() == "p" {
-		config.EnableExportedIdentifierHandling = false
-		config.ConsiderExportedConstantsUsed = false
 	}
 
 	// Create result container
@@ -109,7 +86,7 @@ func run(pass *analysis.Pass) (interface{}, error) {
 // AnalyzePackage analyzes the package and returns issues.
 // This is an exported function for testing purposes.
 func AnalyzePackage(pass *analysis.Pass, config *Config) []Issue {
-	// Для отладки
+	// For debugging
 	if config.Debug {
 		fmt.Println("Analyzing package:", pass.Pkg.Path())
 		fmt.Println("Total files:", len(pass.Files))
@@ -117,28 +94,6 @@ func AnalyzePackage(pass *analysis.Pass, config *Config) []Issue {
 			fileName := pass.Fset.File(f.Pos()).Name()
 			fmt.Printf("File: %s (isTest: %v)\n", fileName, isTestFile(fileName, config))
 		}
-	}
-
-	// Special case for complex_detection and improved_detection packages
-	if pass.Pkg != nil && (pass.Pkg.Path() == "complex_detection" || pass.Pkg.Path() == "improved_detection") {
-		config.ReportExplicitTestCases = true
-		config.EnableTypeEmbeddingAnalysis = true
-		config.EnableReflectionAnalysis = true
-		config.EnableRegistryPatternDetection = true
-		config.ConsiderReflectionRisky = true
-
-		// Enable robust dependency analysis features
-		config.EnableCallGraphAnalysis = true
-		config.EnableInterfaceImplementationDetection = true
-		config.EnableRobustCrossPackageAnalysis = true
-		config.EnableExportedIdentifierHandling = false // Disable for test packages to detect all test-only exports
-		config.ConsiderExportedConstantsUsed = false    // Disable for test packages
-	}
-
-	// Special handling for basic test package 'p'
-	if pass.Pkg != nil && pass.Pkg.Path() == "p" {
-		config.EnableExportedIdentifierHandling = false
-		config.ConsiderExportedConstantsUsed = false
 	}
 
 	// Create result container

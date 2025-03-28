@@ -87,8 +87,8 @@ func DefaultConfig() *Config {
 		TestHelperPatterns:                     defaultTestHelperPatterns(),
 		IgnoreFilePatterns:                     defaultIgnoreFilePatterns(),
 		ExcludePatterns:                        []string{},
-		ExplicitTestOnlyIdentifiers:            defaultExplicitTestOnlyIdentifiers(),
-		ReportExplicitTestCases:                true,
+		ExplicitTestOnlyIdentifiers:            []string{},
+		ReportExplicitTestCases:                false,
 		EnableTypeEmbeddingAnalysis:            true,
 		EnableReflectionAnalysis:               true,
 		ConsiderReflectionRisky:                true,
@@ -209,16 +209,6 @@ func isTestHelperIdentifier(name string, config *Config) bool {
 	return false
 }
 
-// isExplicitTestOnly returns true if the identifier is explicitly marked as test-only
-func isExplicitTestOnly(name string, config *Config) bool {
-	for _, testOnly := range config.ExplicitTestOnlyIdentifiers {
-		if name == testOnly {
-			return true
-		}
-	}
-	return false
-}
-
 // shouldExcludeFromReport determines if an identifier should be excluded from reporting
 func shouldExcludeFromReport(name string, info DeclInfo, config *Config) bool {
 	// Always exclude specific patterns if configured
@@ -274,13 +264,13 @@ func matchesPattern(name, pattern string) bool {
 
 // isTestFile returns true if the file is a test file
 func isTestFile(filename string, config *Config) bool {
-	// Проверяем на наличие слова "test" в любом регистре в имени файла
+	// Check for the word "test" in any case in the filename
 	lowerFilename := strings.ToLower(filename)
 	if strings.Contains(lowerFilename, "test") {
 		return true
 	}
 
-	// Проверяем дополнительные тестовые файлы из конфигурации
+	// Check additional test files from configuration
 	if config != nil {
 		for _, pattern := range config.AdditionalTests {
 			if strings.Contains(filename, pattern) {
@@ -313,72 +303,5 @@ func defaultIgnoreFilePatterns() []string {
 		"test_util",
 		"testutil",
 		"testhelper",
-	}
-}
-
-// defaultExplicitTestOnlyIdentifiers returns the default list of identifiers that should be considered test-only
-func defaultExplicitTestOnlyIdentifiers() []string {
-	return []string{
-		"testOnlyFunction",
-		"TestOnlyType",
-		"testOnlyConstant",
-		"helperFunction",
-		"reflectionFunction",
-		"testMethod",
-		// Complex detection cases for embedding
-		"BaseStruct",
-		"BaseMethod",
-		"MiddleStruct",
-		"MiddleMethod",
-		"TopStruct",
-		"TopMethod",
-		"MixinOne",
-		"MixinOneMethod",
-		"MixinTwo",
-		"MixinTwoMethod",
-		"ComplexEmbedding",
-		"OwnMethod",
-		// Complex detection cases for reflection
-		"ComplexReflectionStruct",
-		"innerStruct",
-		"DynamicMethod",
-		"GetInnerValue",
-		"GenericReflectionHandler",
-		"ReflectionWrapper",
-		"CallMethod",
-		// Complex detection cases for interfaces
-		"Reader",
-		"Writer",
-		"Closer",
-		"ReadWriter",
-		"ReadWriteCloser",
-		"CustomReader",
-		"Read",
-		"CustomWriter",
-		"Write",
-		"CustomReadWriter",
-		"FullImplementation",
-		"Close",
-		"Process",
-		"ProcessAndClose",
-		// Complex detection cases for registries
-		"Handler",
-		"Registry",
-		"RegisterHandler",
-		"GetHandler",
-		"StringHandler",
-		"IntHandler",
-		"ExecuteHandler",
-		"Plugin",
-		"RegisterPlugin",
-		// Complex detection cases for shadowing
-		"GlobalVariable",
-		"GlobalFunction",
-		"GlobalType",
-		"GlobalMethod",
-		"ShadowingContainer",
-		"ShadowingFunction",
-		"NestedShadowing",
-		"NotShadowed",
 	}
 }

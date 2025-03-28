@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-// CustomHandler - пользовательский обработчик для тестов
+// CustomHandler - custom handler for tests
 func CustomHandler(data interface{}) (interface{}, error) {
 	if str, ok := data.(string); ok {
 		return "Custom: " + str, nil
@@ -13,7 +13,7 @@ func CustomHandler(data interface{}) (interface{}, error) {
 }
 
 func TestBasicRegistry(t *testing.T) {
-	// Проверяем работу с базовыми обработчиками, зарегистрированными в init()
+	// Check the operation with basic handlers registered in init()
 	result, err := ExecuteHandler("string", "test data")
 	if err != nil {
 		t.Errorf("Error executing string handler: %v", err)
@@ -28,23 +28,23 @@ func TestBasicRegistry(t *testing.T) {
 }
 
 func TestCustomHandlerRegistration(t *testing.T) {
-	// Регистрируем новый обработчик
+	// Register a new handler
 	RegisterHandler("custom", CustomHandler)
 
-	// Проверяем, что обработчик успешно зарегистрирован
+	// Check that the handler is successfully registered
 	handler, err := GetHandler("custom")
 	if err != nil {
 		t.Errorf("Error getting custom handler: %v", err)
 	}
 
-	// Проверяем работу зарегистрированного обработчика
+	// Check the operation of the registered handler
 	result, err := handler("custom test")
 	if err != nil {
 		t.Errorf("Error running custom handler: %v", err)
 	}
 	t.Logf("Custom handler result: %v", result)
 
-	// Проверяем через общую функцию выполнения
+	// Check through the common execution function
 	result, err = ExecuteHandler("custom", "via execute")
 	if err != nil {
 		t.Errorf("Error executing custom handler: %v", err)
@@ -53,7 +53,7 @@ func TestCustomHandlerRegistration(t *testing.T) {
 }
 
 func TestPluginRegistration(t *testing.T) {
-	// Создаем и регистрируем плагин
+	// Create and register a plugin
 	plugin := Plugin{
 		Name: "testPlugin",
 		Handlers: map[string]Handler{
@@ -73,10 +73,10 @@ func TestPluginRegistration(t *testing.T) {
 		IsEnabled: true,
 	}
 
-	// Регистрируем плагин
+	// Register the plugin
 	RegisterPlugin(plugin)
 
-	// Проверяем обработчики из плагина
+	// Check handlers from the plugin
 	result, err := ExecuteHandler("testPlugin.double", "abc")
 	if err != nil {
 		t.Errorf("Error executing plugin double handler: %v", err)
@@ -89,7 +89,7 @@ func TestPluginRegistration(t *testing.T) {
 	}
 	t.Logf("Plugin count handler result: %v", result)
 
-	// Проверяем что обработчик можно получить через GetHandler
+	// Check that the handler can be retrieved via GetHandler
 	handler, err := GetHandler("testPlugin.double")
 	if err != nil {
 		t.Errorf("Error getting plugin double handler: %v", err)
@@ -99,7 +99,7 @@ func TestPluginRegistration(t *testing.T) {
 }
 
 func TestDisabledPlugin(t *testing.T) {
-	// Создаем отключенный плагин
+	// Create a disabled plugin
 	disabledPlugin := Plugin{
 		Name: "disabled",
 		Handlers: map[string]Handler{
@@ -110,10 +110,10 @@ func TestDisabledPlugin(t *testing.T) {
 		IsEnabled: false,
 	}
 
-	// Регистрируем отключенный плагин
+	// Register the disabled plugin
 	RegisterPlugin(disabledPlugin)
 
-	// Проверяем, что обработчики отключенного плагина не зарегистрированы
+	// Check that handlers from the disabled plugin are not registered
 	_, err := GetHandler("disabled.test")
 	if err == nil {
 		t.Errorf("Disabled plugin handler should not be registered")

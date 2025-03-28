@@ -5,7 +5,7 @@ import (
 )
 
 func TestSimpleEmbedding(t *testing.T) {
-	// Проверяем простое встраивание - MiddleStruct содержит BaseStruct
+	// Check simple embedding - MiddleStruct contains BaseStruct
 	middle := &MiddleStruct{
 		BaseStruct: BaseStruct{
 			BaseField: "base value",
@@ -13,20 +13,20 @@ func TestSimpleEmbedding(t *testing.T) {
 		MiddleField: 42,
 	}
 
-	// Вызов метода встроенной структуры
+	// Call method of embedded structure
 	baseResult := middle.BaseMethod()
 	t.Logf("Base method result: %s", baseResult)
 
-	// Вызов собственного метода
+	// Call own method
 	middleResult := middle.MiddleMethod()
 	t.Logf("Middle method result: %d", middleResult)
 
-	// Прямой доступ к полям встроенной структуры
+	// Direct access to fields of embedded structure
 	t.Logf("Base field via embedding: %s", middle.BaseField)
 }
 
 func TestMultiLevelEmbedding(t *testing.T) {
-	// Проверяем многоуровневое встраивание - TopStruct > MiddleStruct > BaseStruct
+	// Check multi-level embedding - TopStruct > MiddleStruct > BaseStruct
 	top := &TopStruct{
 		MiddleStruct: MiddleStruct{
 			BaseStruct: BaseStruct{
@@ -37,25 +37,25 @@ func TestMultiLevelEmbedding(t *testing.T) {
 		TopField: true,
 	}
 
-	// Вызов метода из верхнего уровня
+	// Call method from top level
 	topResult := top.TopMethod()
 	t.Logf("Top method result: %v", topResult)
 
-	// Вызов метода из среднего уровня
+	// Call method from middle level
 	middleResult := top.MiddleMethod()
 	t.Logf("Middle method via top: %d", middleResult)
 
-	// Вызов метода из базового уровня
+	// Call method from base level
 	baseResult := top.BaseMethod()
 	t.Logf("Base method via top: %s", baseResult)
 
-	// Доступ к полям на разных уровнях встраивания
+	// Access fields at different levels of embedding
 	t.Logf("Multi-level field access: %s, %d, %v",
 		top.BaseField, top.MiddleField, top.TopField)
 }
 
 func TestComplexMultipleEmbedding(t *testing.T) {
-	// Проверяем множественное встраивание различных типов
+	// Check multiple embedding of different types
 	complex := &ComplexEmbedding{
 		BaseStruct: BaseStruct{
 			BaseField: "base in complex",
@@ -69,11 +69,11 @@ func TestComplexMultipleEmbedding(t *testing.T) {
 		OwnField: 3.14,
 	}
 
-	// Вызов собственного метода
+	// Call own method
 	ownResult := complex.OwnMethod()
 	t.Logf("Own method result: %f", ownResult)
 
-	// Вызов методов из всех встроенных типов
+	// Call methods from all embedded types
 	baseResult := complex.BaseMethod()
 	mixinOneResult := complex.MixinOneMethod()
 	mixinTwoResult := complex.MixinTwoMethod()
@@ -81,7 +81,7 @@ func TestComplexMultipleEmbedding(t *testing.T) {
 	t.Logf("Results from embedded types: %s, %s, %d",
 		baseResult, mixinOneResult, mixinTwoResult)
 
-	// Доступ к полям из всех встроенных типов
+	// Access fields from all embedded types
 	t.Logf("Fields from embedded types: %s, %s, %d, %f",
 		complex.BaseField, complex.MixinOneField,
 		complex.MixinTwoField, complex.OwnField)

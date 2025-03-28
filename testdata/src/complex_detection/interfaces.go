@@ -2,32 +2,32 @@ package complex_detection
 
 import "io"
 
-// Reader - интерфейс для чтения данных
+// Reader - interface for reading data
 // want "identifier .Reader. is only used in test files but is not part of test files"
 type Reader interface {
 	Read(p []byte) (n int, err error)
 }
 
-// Writer - интерфейс для записи данных
+// Writer - interface for writing data
 // want "identifier .Writer. is only used in test files but is not part of test files"
 type Writer interface {
 	Write(p []byte) (n int, err error)
 }
 
-// Closer - интерфейс для закрытия ресурсов
+// Closer - interface for closing resources
 // want "identifier .Closer. is only used in test files but is not part of test files"
 type Closer interface {
 	Close() error
 }
 
-// ReadWriter - композитный интерфейс, объединяющий Reader и Writer
+// ReadWriter - composite interface combining Reader and Writer
 // want "identifier .ReadWriter. is only used in test files but is not part of test files"
 type ReadWriter interface {
 	Reader
 	Writer
 }
 
-// ReadWriteCloser - композитный интерфейс, объединяющий Reader, Writer и Closer
+// ReadWriteCloser - composite interface combining Reader, Writer and Closer
 // want "identifier .ReadWriteCloser. is only used in test files but is not part of test files"
 type ReadWriteCloser interface {
 	Reader
@@ -35,14 +35,14 @@ type ReadWriteCloser interface {
 	Closer
 }
 
-// CustomReader - конкретная реализация интерфейса Reader
+// CustomReader - concrete implementation of the Reader interface
 // want "identifier .CustomReader. is only used in test files but is not part of test files"
 type CustomReader struct {
 	data []byte
 	pos  int
 }
 
-// Read реализует интерфейс Reader
+// Read implements the Reader interface
 // want "identifier .Read. is only used in test files but is not part of test files"
 func (r *CustomReader) Read(p []byte) (n int, err error) {
 	if r.pos >= len(r.data) {
@@ -53,40 +53,40 @@ func (r *CustomReader) Read(p []byte) (n int, err error) {
 	return n, nil
 }
 
-// CustomWriter - конкретная реализация интерфейса Writer
+// CustomWriter - concrete implementation of the Writer interface
 // want "identifier .CustomWriter. is only used in test files but is not part of test files"
 type CustomWriter struct {
 	data []byte
 }
 
-// Write реализует интерфейс Writer
+// Write implements the Writer interface
 // want "identifier .Write. is only used in test files but is not part of test files"
 func (w *CustomWriter) Write(p []byte) (n int, err error) {
 	w.data = append(w.data, p...)
 	return len(p), nil
 }
 
-// CustomReadWriter реализует композитный интерфейс ReadWriter
+// CustomReadWriter implements the composite ReadWriter interface
 // want "identifier .CustomReadWriter. is only used in test files but is not part of test files"
 type CustomReadWriter struct {
 	CustomReader
 	CustomWriter
 }
 
-// FullImplementation реализует все три интерфейса
+// FullImplementation implements all three interfaces
 // want "identifier .FullImplementation. is only used in test files but is not part of test files"
 type FullImplementation struct {
 	CustomReadWriter
 }
 
-// Close реализует интерфейс Closer
+// Close implements the Closer interface
 // want "identifier .Close. is only used in test files but is not part of test files"
 func (f *FullImplementation) Close() error {
-	// Закрываем ресурсы
+	// Close resources
 	return nil
 }
 
-// Process обрабатывает данные через интерфейс ReadWriter
+// Process processes data through the ReadWriter interface
 // want "identifier .Process. is only used in test files but is not part of test files"
 func Process(rw ReadWriter, data []byte) ([]byte, error) {
 	_, err := rw.Write(data)
@@ -99,7 +99,7 @@ func Process(rw ReadWriter, data []byte) ([]byte, error) {
 	return result, err
 }
 
-// ProcessAndClose обрабатывает данные и закрывает ресурс
+// ProcessAndClose processes data and closes the resource
 // want "identifier .ProcessAndClose. is only used in test files but is not part of test files"
 func ProcessAndClose(rwc ReadWriteCloser, data []byte) ([]byte, error) {
 	defer rwc.Close()

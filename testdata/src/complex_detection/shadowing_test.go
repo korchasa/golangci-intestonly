@@ -5,7 +5,7 @@ import (
 )
 
 func TestGlobalAccess(t *testing.T) {
-	// Проверяем прямой доступ к глобальным идентификаторам
+	// Check direct access to global identifiers
 	t.Logf("Global variable: %s", GlobalVariable)
 	t.Logf("Global function: %s", GlobalFunction())
 
@@ -14,64 +14,64 @@ func TestGlobalAccess(t *testing.T) {
 }
 
 func TestShadowingTypes(t *testing.T) {
-	// Проверяем затенение типов в контейнерах
+	// Check shadowing of types in containers
 	container := &ShadowingContainer{
 		GlobalVariable: "shadowed variable",
 		GlobalType:     42,
 	}
 
-	// Доступ к затененным полям
+	// Access to shadowed fields
 	t.Logf("Container fields: %s, %d", container.GlobalVariable, container.GlobalType)
 
-	// Параллельное использование глобальных идентификаторов и затененных полей
+	// Parallel use of global identifiers and shadowed fields
 	t.Logf("Global and shadowed: %s vs %s", GlobalVariable, container.GlobalVariable)
 }
 
 func TestShadowingFunctions(t *testing.T) {
-	// Проверяем затенение в функциях
+	// Check shadowing in functions
 	result := ShadowingFunction("parameter")
 	t.Logf("Shadowing function result: %s", result)
 }
 
 func TestNestedShadowing(t *testing.T) {
-	// Проверяем вложенное затенение
+	// Check nested shadowing
 	result := NestedShadowing()
 	t.Logf("Nested shadowing result: %s", result)
 }
 
 func TestDirectAccessWithShadowing(t *testing.T) {
-	// Локальное затенение в тесте
+	// Local shadowing in the test
 	GlobalVariable := "test local"
 	GlobalFunction := func() string { return "test function" }
 
-	// Параллельно используем и локальные, и глобальные версии
+	// Use both local and global versions in parallel
 	t.Logf("Local shadowed: %s, %s", GlobalVariable, GlobalFunction())
 
-	// Для доступа к глобальным версиям нужно использовать квалифицированные имена
-	// В тестах это сложнее, так как мы в том же пакете, поэтому используем
-	// специальную функцию, которая обращается к глобальным версиям
+	// To access global versions, qualified names must be used
+	// In tests this is more difficult since we're in the same package, so we use
+	// a special function that accesses global versions
 	global := NotShadowed()
 	t.Logf("Global via function: %s", global)
 }
 
 func TestComplexShadowing(t *testing.T) {
-	// Создаем локальную переменную с тем же именем, что и глобальный тип
+	// Create a local variable with the same name as the global type
 	GlobalType := "string value"
 
-	// Используем локальное и глобальное значение
+	// Use local and global value
 	t.Logf("Local string: %s", GlobalType)
 
-	// Для доступа к глобальному типу используем явное приведение
+	// To access the global type, we use explicit casting
 	g := &(struct {
 		Field string
 	}{"field value"})
 
 	t.Logf("Struct field: %s", g.Field)
 
-	// Сложное затенение с передачей затененных переменных в другие функции
-	localVar := GlobalVariable // Не затенение, а копирование глобальной переменной
+	// Complex shadowing with passing shadowed variables to other functions
+	localVar := GlobalVariable // Not shadowing, but copying the global variable
 	func() {
-		// Затенение внутри анонимной функции
+		// Shadowing within an anonymous function
 		GlobalVariable := "anonymous"
 		t.Logf("In anonymous function: %s, outer: %s", GlobalVariable, localVar)
 	}()

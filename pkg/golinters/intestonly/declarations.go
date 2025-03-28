@@ -71,7 +71,7 @@ func processFuncDecl(n *ast.FuncDecl, fileName, pkgPath string, result *Analysis
 	name := n.Name.Name
 
 	// Skip test helper identifiers unless they're explicit test cases
-	if isTestHelperIdentifier(name, config) && !isExplicitTestOnly(name, config) {
+	if isTestHelperIdentifier(name, config) {
 		return
 	}
 
@@ -104,7 +104,7 @@ func processTypeSpec(n *ast.TypeSpec, fileName, pkgPath string, result *Analysis
 	name := n.Name.Name
 
 	// Skip test helper identifiers unless they're explicit test cases
-	if isTestHelperIdentifier(name, config) && !isExplicitTestOnly(name, config) {
+	if isTestHelperIdentifier(name, config) {
 		return
 	}
 
@@ -130,7 +130,7 @@ func processValueSpec(n *ast.ValueSpec, fileName, pkgPath string, result *Analys
 		}
 
 		// Skip test helper identifiers unless they're explicit test cases
-		if isTestHelperIdentifier(name.Name, config) && !isExplicitTestOnly(name.Name, config) {
+		if isTestHelperIdentifier(name.Name, config) {
 			continue
 		}
 

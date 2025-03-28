@@ -39,7 +39,7 @@ func main() {
 		Tests:     true,
 		ParseFile: nil,
 		Logf: func(format string, args ...interface{}) {
-			if false { // Установите в true для отладки
+			if false { // Set to true for debugging
 				log.Printf(format, args...)
 			}
 		},
@@ -56,10 +56,10 @@ func main() {
 		log.Fatalf("Error running analyzer: %v", err)
 	}
 
-	// Инициализируем exitCode здесь
+	// Initialize exitCode here
 	exitCode := 0
 
-	// Печатаем любые ошибки, связанные с загрузкой пакетов
+	// Print any errors related to package loading
 	for _, pkg := range pkgs {
 		if len(pkg.Errors) > 0 {
 			for _, err := range pkg.Errors {

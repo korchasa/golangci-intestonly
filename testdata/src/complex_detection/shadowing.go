@@ -1,49 +1,49 @@
 package complex_detection
 
-// GlobalVariable - глобальная переменная, которая может быть затенена
+// GlobalVariable - global variable that can be shadowed
 // want "identifier .GlobalVariable. is only used in test files but is not part of test files"
 var GlobalVariable = "global value"
 
-// GlobalFunction - глобальная функция, которая может быть затенена
+// GlobalFunction - global function that can be shadowed
 // want "identifier .GlobalFunction. is only used in test files but is not part of test files"
 func GlobalFunction() string {
 	return "global function"
 }
 
-// GlobalType - глобальный тип, который может быть затенен
+// GlobalType - global type that can be shadowed
 // want "identifier .GlobalType. is only used in test files but is not part of test files"
 type GlobalType struct {
 	Field string
 }
 
-// GlobalMethod - метод глобального типа
+// GlobalMethod - method of global type
 // want "identifier .GlobalMethod. is only used in test files but is not part of test files"
 func (g *GlobalType) GlobalMethod() string {
 	return g.Field
 }
 
-// ShadowingContainer содержит поля с теми же именами, что и глобальные идентификаторы
+// ShadowingContainer contains fields with the same names as global identifiers
 // want "identifier .ShadowingContainer. is only used in test files but is not part of test files"
 type ShadowingContainer struct {
-	// Затеняет глобальную переменную
+	// Shadows global variable
 	GlobalVariable string
 
-	// Затеняет глобальный тип
+	// Shadows global type
 	GlobalType int
 }
 
-// ShadowingFunction затеняет глобальные идентификаторы локальными переменными
+// ShadowingFunction shadows global identifiers with local variables
 // want "identifier .ShadowingFunction. is only used in test files but is not part of test files"
 func ShadowingFunction(GlobalVariable string) string {
-	// Локальная переменная затеняет параметр функции
+	// Local variable shadows function parameter
 	GlobalVariable = "local in function"
 
-	// Затеняем глобальную функцию локальной переменной
+	// Shadow global function with local variable
 	GlobalFunction := func() string {
 		return "local function"
 	}
 
-	// Затеняем глобальный тип локальной переменной
+	// Shadow global type with local variable
 	GlobalType := struct {
 		Value int
 	}{
@@ -53,33 +53,33 @@ func ShadowingFunction(GlobalVariable string) string {
 	return GlobalVariable + " " + GlobalFunction() + " " + string(rune(GlobalType.Value))
 }
 
-// NestedShadowing демонстрирует затенение в разных областях видимости
+// NestedShadowing demonstrates shadowing in different scopes
 // want "identifier .NestedShadowing. is only used in test files but is not part of test files"
 func NestedShadowing() string {
-	// Затеняем глобальную переменную на верхнем уровне
+	// Shadow global variable at top level
 	GlobalVariable := "outer"
 
-	// Создаем анонимную функцию с затенением
+	// Create anonymous function with shadowing
 	f := func() string {
-		// Затеняем переменную из внешней области видимости
+		// Shadow variable from outer scope
 		GlobalVariable := "inner"
 		return GlobalVariable
 	}
 
-	// Еще один уровень вложенности
+	// Another level of nesting
 	{
-		// Затеняем в блоке
+		// Shadow in block
 		GlobalVariable := "block"
-		_ = GlobalVariable // Используем переменную, чтобы не было предупреждения
+		_ = GlobalVariable // Use variable to avoid warning
 	}
 
 	return GlobalVariable + " " + f()
 }
 
-// NotShadowed использует глобальные идентификаторы без затенения
+// NotShadowed uses global identifiers without shadowing
 // want "identifier .NotShadowed. is only used in test files but is not part of test files"
 func NotShadowed() string {
-	// Используем глобальные идентификаторы напрямую
+	// Use global identifiers directly
 	g := &GlobalType{Field: "direct access"}
 	return GlobalVariable + " " + GlobalFunction() + " " + g.GlobalMethod()
 }
