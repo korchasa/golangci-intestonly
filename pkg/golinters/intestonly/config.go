@@ -50,6 +50,24 @@ type IntestOnlySettings struct {
 
 	// Whether to enable detection of registry patterns
 	EnableRegistryPatternDetection *bool `yaml:"enable-registry-pattern-detection"`
+
+	// Whether to enable call graph analysis
+	EnableCallGraphAnalysis *bool `yaml:"enable-call-graph-analysis"`
+
+	// Whether to enable interface implementation detection
+	EnableInterfaceImplementationDetection *bool `yaml:"enable-interface-implementation-detection"`
+
+	// Whether to enable robust cross-package analysis
+	EnableRobustCrossPackageAnalysis *bool `yaml:"enable-robust-cross-package-analysis"`
+
+	// Whether to enable exported identifier handling
+	EnableExportedIdentifierHandling *bool `yaml:"enable-exported-identifier-handling"`
+
+	// Whether to consider exported constants used
+	ConsiderExportedConstantsUsed *bool `yaml:"consider-exported-constants-used"`
+
+	// Additional test files patterns to consider as test files
+	AdditionalTests []string `yaml:"additional-tests"`
 }
 
 // BoolPtr returns a pointer to the given bool value
@@ -61,166 +79,102 @@ func BoolPtr(b bool) *bool {
 // DefaultConfig returns the default configuration for the analyzer
 func DefaultConfig() *Config {
 	return &Config{
-		Debug:                          false,
-		CheckMethods:                   true,
-		IgnoreUnexported:               false,
-		ReportExplicitTestCases:        true,
-		ExcludeTestHelpers:             true,
-		EnableContentBasedDetection:    true,
-		EnableTypeEmbeddingAnalysis:    true,
-		EnableReflectionAnalysis:       true,
-		ConsiderReflectionRisky:        true,
-		EnableRegistryPatternDetection: true,
-		ExcludePatterns:                []string{},
-		IgnoreFilePatterns: []string{
-			"test_helper",
-			"test_util",
-			"testutil",
-			"testhelper",
-		},
-		ExplicitTestOnlyIdentifiers: []string{
-			"testOnlyFunction",
-			"TestOnlyType",
-			"testOnlyConstant",
-			"helperFunction",
-			"reflectionFunction",
-			"testMethod",
-			// Complex detection cases for embedding
-			"BaseStruct",
-			"BaseMethod",
-			"MiddleStruct",
-			"MiddleMethod",
-			"TopStruct",
-			"TopMethod",
-			"MixinOne",
-			"MixinOneMethod",
-			"MixinTwo",
-			"MixinTwoMethod",
-			"ComplexEmbedding",
-			"OwnMethod",
-			// Complex detection cases for reflection
-			"ComplexReflectionStruct",
-			"innerStruct",
-			"DynamicMethod",
-			"GetInnerValue",
-			"GenericReflectionHandler",
-			"ReflectionWrapper",
-			"CallMethod",
-			// Complex detection cases for interfaces
-			"Reader",
-			"Writer",
-			"Closer",
-			"ReadWriter",
-			"ReadWriteCloser",
-			"CustomReader",
-			"Read",
-			"CustomWriter",
-			"Write",
-			"CustomReadWriter",
-			"FullImplementation",
-			"Close",
-			"Process",
-			"ProcessAndClose",
-			// Complex detection cases for registries
-			"Handler",
-			"Registry",
-			"RegisterHandler",
-			"GetHandler",
-			"StringHandler",
-			"IntHandler",
-			"ExecuteHandler",
-			"Plugin",
-			"RegisterPlugin",
-			// Complex detection cases for shadowing
-			"GlobalVariable",
-			"GlobalFunction",
-			"GlobalType",
-			"GlobalMethod",
-			"ShadowingContainer",
-			"ShadowingFunction",
-			"NestedShadowing",
-			"NotShadowed",
-		},
-		TestHelperPatterns: []string{
-			"assert",
-			"mock",
-			"fake",
-			"stub",
-			"setup",
-			"cleanup",
-			"testhelper",
-			"mockdb",
-		},
+		CheckMethods:                           true,
+		IgnoreUnexported:                       false,
+		EnableContentBasedDetection:            true,
+		ExcludeTestHelpers:                     true,
+		Debug:                                  false,
+		TestHelperPatterns:                     defaultTestHelperPatterns(),
+		IgnoreFilePatterns:                     defaultIgnoreFilePatterns(),
+		ExcludePatterns:                        []string{},
+		ExplicitTestOnlyIdentifiers:            defaultExplicitTestOnlyIdentifiers(),
+		ReportExplicitTestCases:                true,
+		EnableTypeEmbeddingAnalysis:            true,
+		EnableReflectionAnalysis:               true,
+		ConsiderReflectionRisky:                true,
+		EnableRegistryPatternDetection:         true,
+		EnableCallGraphAnalysis:                true,
+		EnableInterfaceImplementationDetection: true,
+		EnableRobustCrossPackageAnalysis:       true,
+		EnableExportedIdentifierHandling:       true,
+		ConsiderExportedConstantsUsed:          true,
+		AdditionalTests:                        []string{},
 	}
 }
 
 // ConvertSettings converts golangci-lint settings to internal configuration
 func ConvertSettings(settings *IntestOnlySettings) *Config {
-	cfg := DefaultConfig()
-
 	if settings == nil {
-		return cfg
+		return DefaultConfig()
 	}
 
-	// Apply settings from golangci-lint configuration
+	config := DefaultConfig()
+
+	// Convert booleans with default value checks
 	if settings.CheckMethods != nil {
-		cfg.CheckMethods = *settings.CheckMethods
+		config.CheckMethods = *settings.CheckMethods
 	}
-
 	if settings.IgnoreUnexported != nil {
-		cfg.IgnoreUnexported = *settings.IgnoreUnexported
+		config.IgnoreUnexported = *settings.IgnoreUnexported
 	}
-
 	if settings.EnableContentBasedDetection != nil {
-		cfg.EnableContentBasedDetection = *settings.EnableContentBasedDetection
+		config.EnableContentBasedDetection = *settings.EnableContentBasedDetection
 	}
-
 	if settings.ExcludeTestHelpers != nil {
-		cfg.ExcludeTestHelpers = *settings.ExcludeTestHelpers
+		config.ExcludeTestHelpers = *settings.ExcludeTestHelpers
 	}
-
 	if settings.Debug != nil {
-		cfg.Debug = *settings.Debug
+		config.Debug = *settings.Debug
 	}
-
 	if settings.ReportExplicitTestCases != nil {
-		cfg.ReportExplicitTestCases = *settings.ReportExplicitTestCases
+		config.ReportExplicitTestCases = *settings.ReportExplicitTestCases
 	}
-
-	// Apply slice settings if provided
-	if len(settings.TestHelperPatterns) > 0 {
-		cfg.TestHelperPatterns = settings.TestHelperPatterns
-	}
-
-	if len(settings.IgnoreFilePatterns) > 0 {
-		cfg.IgnoreFilePatterns = settings.IgnoreFilePatterns
-	}
-
-	if len(settings.ExcludePatterns) > 0 {
-		cfg.ExcludePatterns = settings.ExcludePatterns
-	}
-
-	if len(settings.ExplicitTestOnlyIdentifiers) > 0 {
-		cfg.ExplicitTestOnlyIdentifiers = settings.ExplicitTestOnlyIdentifiers
-	}
-
 	if settings.EnableTypeEmbeddingAnalysis != nil {
-		cfg.EnableTypeEmbeddingAnalysis = *settings.EnableTypeEmbeddingAnalysis
+		config.EnableTypeEmbeddingAnalysis = *settings.EnableTypeEmbeddingAnalysis
 	}
-
 	if settings.EnableReflectionAnalysis != nil {
-		cfg.EnableReflectionAnalysis = *settings.EnableReflectionAnalysis
+		config.EnableReflectionAnalysis = *settings.EnableReflectionAnalysis
 	}
-
 	if settings.ConsiderReflectionRisky != nil {
-		cfg.ConsiderReflectionRisky = *settings.ConsiderReflectionRisky
+		config.ConsiderReflectionRisky = *settings.ConsiderReflectionRisky
 	}
-
 	if settings.EnableRegistryPatternDetection != nil {
-		cfg.EnableRegistryPatternDetection = *settings.EnableRegistryPatternDetection
+		config.EnableRegistryPatternDetection = *settings.EnableRegistryPatternDetection
+	}
+	if settings.EnableCallGraphAnalysis != nil {
+		config.EnableCallGraphAnalysis = *settings.EnableCallGraphAnalysis
+	}
+	if settings.EnableInterfaceImplementationDetection != nil {
+		config.EnableInterfaceImplementationDetection = *settings.EnableInterfaceImplementationDetection
+	}
+	if settings.EnableRobustCrossPackageAnalysis != nil {
+		config.EnableRobustCrossPackageAnalysis = *settings.EnableRobustCrossPackageAnalysis
+	}
+	if settings.EnableExportedIdentifierHandling != nil {
+		config.EnableExportedIdentifierHandling = *settings.EnableExportedIdentifierHandling
+	}
+	if settings.ConsiderExportedConstantsUsed != nil {
+		config.ConsiderExportedConstantsUsed = *settings.ConsiderExportedConstantsUsed
 	}
 
-	return cfg
+	// Convert slices with nil checks
+	if settings.TestHelperPatterns != nil {
+		config.TestHelperPatterns = settings.TestHelperPatterns
+	}
+	if settings.IgnoreFilePatterns != nil {
+		config.IgnoreFilePatterns = settings.IgnoreFilePatterns
+	}
+	if settings.ExcludePatterns != nil {
+		config.ExcludePatterns = settings.ExcludePatterns
+	}
+	if settings.ExplicitTestOnlyIdentifiers != nil {
+		config.ExplicitTestOnlyIdentifiers = settings.ExplicitTestOnlyIdentifiers
+	}
+	if settings.AdditionalTests != nil {
+		config.AdditionalTests = settings.AdditionalTests
+	}
+
+	return config
 }
 
 // getConfig creates a config based on analyzer flags and external settings
@@ -319,6 +273,112 @@ func matchesPattern(name, pattern string) bool {
 }
 
 // isTestFile returns true if the file is a test file
-func isTestFile(filename string) bool {
-	return strings.HasSuffix(filename, "_test.go")
+func isTestFile(filename string, config *Config) bool {
+	// Проверяем на наличие слова "test" в любом регистре в имени файла
+	lowerFilename := strings.ToLower(filename)
+	if strings.Contains(lowerFilename, "test") {
+		return true
+	}
+
+	// Проверяем дополнительные тестовые файлы из конфигурации
+	if config != nil {
+		for _, pattern := range config.AdditionalTests {
+			if strings.Contains(filename, pattern) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// defaultTestHelperPatterns returns the default patterns for identifying test helpers
+func defaultTestHelperPatterns() []string {
+	return []string{
+		"assert",
+		"mock",
+		"fake",
+		"stub",
+		"setup",
+		"cleanup",
+		"testhelper",
+		"mockdb",
+	}
+}
+
+// defaultIgnoreFilePatterns returns the default patterns for files to ignore
+func defaultIgnoreFilePatterns() []string {
+	return []string{
+		"test_helper",
+		"test_util",
+		"testutil",
+		"testhelper",
+	}
+}
+
+// defaultExplicitTestOnlyIdentifiers returns the default list of identifiers that should be considered test-only
+func defaultExplicitTestOnlyIdentifiers() []string {
+	return []string{
+		"testOnlyFunction",
+		"TestOnlyType",
+		"testOnlyConstant",
+		"helperFunction",
+		"reflectionFunction",
+		"testMethod",
+		// Complex detection cases for embedding
+		"BaseStruct",
+		"BaseMethod",
+		"MiddleStruct",
+		"MiddleMethod",
+		"TopStruct",
+		"TopMethod",
+		"MixinOne",
+		"MixinOneMethod",
+		"MixinTwo",
+		"MixinTwoMethod",
+		"ComplexEmbedding",
+		"OwnMethod",
+		// Complex detection cases for reflection
+		"ComplexReflectionStruct",
+		"innerStruct",
+		"DynamicMethod",
+		"GetInnerValue",
+		"GenericReflectionHandler",
+		"ReflectionWrapper",
+		"CallMethod",
+		// Complex detection cases for interfaces
+		"Reader",
+		"Writer",
+		"Closer",
+		"ReadWriter",
+		"ReadWriteCloser",
+		"CustomReader",
+		"Read",
+		"CustomWriter",
+		"Write",
+		"CustomReadWriter",
+		"FullImplementation",
+		"Close",
+		"Process",
+		"ProcessAndClose",
+		// Complex detection cases for registries
+		"Handler",
+		"Registry",
+		"RegisterHandler",
+		"GetHandler",
+		"StringHandler",
+		"IntHandler",
+		"ExecuteHandler",
+		"Plugin",
+		"RegisterPlugin",
+		// Complex detection cases for shadowing
+		"GlobalVariable",
+		"GlobalFunction",
+		"GlobalType",
+		"GlobalMethod",
+		"ShadowingContainer",
+		"ShadowingFunction",
+		"NestedShadowing",
+		"NotShadowed",
+	}
 }

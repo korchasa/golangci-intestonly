@@ -15,7 +15,7 @@ func analyzeContentBasedUsages(pass *analysis.Pass, result *AnalysisResult, conf
 		fileName := pass.Fset.File(file.Pos()).Name()
 
 		// Skip test files
-		if isTestFile(fileName) || shouldIgnoreFile(fileName, config) {
+		if isTestFile(fileName, config) || shouldIgnoreFile(fileName, config) {
 			continue
 		}
 

@@ -76,6 +76,24 @@ type Config struct {
 
 	// Whether to enable detection of registry patterns
 	EnableRegistryPatternDetection bool
+
+	// Whether to enable call graph analysis for more accurate dependency tracking
+	EnableCallGraphAnalysis bool
+
+	// Whether to enable enhanced interface implementation detection
+	EnableInterfaceImplementationDetection bool
+
+	// Whether to perform deeper cross-package reference analysis
+	EnableRobustCrossPackageAnalysis bool
+
+	// Whether to apply special handling for exported identifiers
+	EnableExportedIdentifierHandling bool
+
+	// Whether to consider exported constants used even if no direct usage is found
+	ConsiderExportedConstantsUsed bool
+
+	// Additional test files patterns to consider as test files
+	AdditionalTests []string
 }
 
 // AnalysisResult holds the results of the analysis
@@ -87,16 +105,34 @@ type AnalysisResult struct {
 	ImportRefs     map[string]string      // Map import path with identifier to full reference
 	ImportedPkgs   map[string]string      // Map imported package name to its path
 	CurrentPkgPath string                 // Current package path being analyzed
+
+	// Call graph tracking
+	CallGraph map[string][]string // Maps function to functions it calls
+	CalledBy  map[string][]string // Maps function to functions that call it
+
+	// Interface implementations
+	Interfaces      map[string][]string // Maps interface name to its method names
+	Implementations map[string][]string // Maps interface name to types that implement it
+	MethodsOfType   map[string][]string // Maps type name to its methods
+
+	// Export tracking
+	ExportedDecls map[string]bool // Set of exported declarations
 }
 
 // NewAnalysisResult creates a new AnalysisResult instance
 func NewAnalysisResult() *AnalysisResult {
 	return &AnalysisResult{
-		Declarations:  make(map[string]DeclInfo),
-		TestUsages:    make(map[string][]token.Pos),
-		NonTestUsages: make(map[string][]token.Pos),
-		DeclPositions: make(map[token.Pos]string),
-		ImportRefs:    make(map[string]string),
-		ImportedPkgs:  make(map[string]string),
+		Declarations:    make(map[string]DeclInfo),
+		TestUsages:      make(map[string][]token.Pos),
+		NonTestUsages:   make(map[string][]token.Pos),
+		DeclPositions:   make(map[token.Pos]string),
+		ImportRefs:      make(map[string]string),
+		ImportedPkgs:    make(map[string]string),
+		CallGraph:       make(map[string][]string),
+		CalledBy:        make(map[string][]string),
+		Interfaces:      make(map[string][]string),
+		Implementations: make(map[string][]string),
+		MethodsOfType:   make(map[string][]string),
+		ExportedDecls:   make(map[string]bool),
 	}
 }

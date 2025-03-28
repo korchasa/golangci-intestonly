@@ -1,6 +1,7 @@
 package intestonly
 
 import (
+	"fmt"
 	"go/ast"
 	"strings"
 
@@ -12,8 +13,11 @@ func collectDeclarations(pass *analysis.Pass, result *AnalysisResult, config *Co
 	for _, file := range pass.Files {
 		fileName := pass.Fset.File(file.Pos()).Name()
 
-		// Skip test files and test helpers
-		if isTestFile(fileName) || shouldIgnoreFile(fileName, config) {
+		// Skip test files and files that should be ignored based on naming patterns
+		if isTestFile(fileName, config) || shouldIgnoreFile(fileName, config) {
+			if config.Debug {
+				fmt.Printf("Skipping file for declarations: %s\n", fileName)
+			}
 			continue
 		}
 

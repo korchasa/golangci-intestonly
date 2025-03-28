@@ -14,10 +14,10 @@ import (
 // analyzeUsages examines all files to track where declarations are used
 // This unified system combines basic and advanced analysis methods
 func analyzeUsages(pass *analysis.Pass, result *AnalysisResult, config *Config) {
-	// Process each file
+	// Track usages in each file
 	for _, file := range pass.Files {
 		fileName := pass.Fset.File(file.Pos()).Name()
-		isTest := isTestFile(fileName)
+		isTest := isTestFile(fileName, config)
 
 		// Skip files that should be ignored
 		if shouldIgnoreFile(fileName, config) && !isTest {
@@ -236,7 +236,7 @@ func analyzeTypeEmbedding(pass *analysis.Pass, result *AnalysisResult, config *C
 	// Process each file
 	for _, file := range pass.Files {
 		fileName := pass.Fset.File(file.Pos()).Name()
-		isTest := isTestFile(fileName)
+		isTest := isTestFile(fileName, config)
 
 		// Skip files that should be ignored
 		if shouldIgnoreFile(fileName, config) && !isTest {
@@ -251,7 +251,7 @@ func analyzeTypeEmbedding(pass *analysis.Pass, result *AnalysisResult, config *C
 func analyzeReflectionUsage(pass *analysis.Pass, result *AnalysisResult, config *Config) {
 	for _, file := range pass.Files {
 		fileName := pass.Fset.File(file.Pos()).Name()
-		isTest := isTestFile(fileName)
+		isTest := isTestFile(fileName, config)
 
 		// Skip if we're not checking test files and this is a test file
 		if !isTest && shouldIgnoreFile(fileName, config) {
@@ -359,7 +359,7 @@ func analyzeReflectionUsage(pass *analysis.Pass, result *AnalysisResult, config 
 func analyzeRegistryPatterns(pass *analysis.Pass, result *AnalysisResult, config *Config) {
 	for _, file := range pass.Files {
 		fileName := pass.Fset.File(file.Pos()).Name()
-		isTest := isTestFile(fileName)
+		isTest := isTestFile(fileName, config)
 
 		ast.Inspect(file, func(n ast.Node) bool {
 			// Look for common registration patterns
@@ -462,4 +462,282 @@ func (result *AnalysisResult) AddTestUsage(name string) {
 // Helper function to add a non-test usage
 func (result *AnalysisResult) AddNonTestUsage(name string) {
 	result.NonTestUsages[name] = append(result.NonTestUsages[name], token.NoPos)
+}
+
+// processFileUsages processes identifier usages in a file
+func processFileUsages(file *ast.File, fileName string, isTest bool, result *AnalysisResult, pass *analysis.Pass, config *Config) {
+	// Process imports for package references
+	processImports(file, result)
+
+	// Process usage of declarations in the file
+	ast.Inspect(file, func(n ast.Node) bool {
+		switch node := n.(type) {
+		case *ast.Ident:
+			// Check if this is a reference to a declaration we're tracking
+			if _, exists := result.Declarations[node.Name]; !exists {
+				return true
+			}
+
+			// Record usage based on whether this is a test file
+			if isTest {
+				result.TestUsages[node.Name] = append(result.TestUsages[node.Name], node.Pos())
+				if config.Debug {
+					fmt.Printf("Test usage of %s\n", node.Name)
+				}
+			} else {
+				result.NonTestUsages[node.Name] = append(result.NonTestUsages[node.Name], node.Pos())
+				if config.Debug {
+					fmt.Printf("Non-test usage of %s\n", node.Name)
+				}
+			}
+
+		case *ast.SelectorExpr:
+			// Handle qualified references (pkg.Func or x.Method)
+			if x, ok := node.X.(*ast.Ident); ok {
+				sel := node.Sel
+
+				// Check if this is a package-qualified reference
+				if importPath, ok := result.ImportedPkgs[x.Name]; ok {
+					// Package-qualified reference
+					fullName := importPath + "." + sel.Name
+
+					// Check if this matches one of our tracked declarations
+					for declName, info := range result.Declarations {
+						if info.ImportRef == fullName {
+							if isTest {
+								result.TestUsages[declName] = append(result.TestUsages[declName], sel.Pos())
+								if config.Debug {
+									fmt.Printf("Test usage of imported %s via %s\n", declName, fullName)
+								}
+							} else {
+								result.NonTestUsages[declName] = append(result.NonTestUsages[declName], sel.Pos())
+								if config.Debug {
+									fmt.Printf("Non-test usage of imported %s via %s\n", declName, fullName)
+								}
+							}
+						}
+					}
+				}
+
+				// Also check if the selector (method name) is a known declaration
+				if _, isDeclared := result.Declarations[sel.Name]; isDeclared {
+					if isTest {
+						result.TestUsages[sel.Name] = append(result.TestUsages[sel.Name], sel.Pos())
+						if config.Debug {
+							fmt.Printf("Test usage of method %s\n", sel.Name)
+						}
+					} else {
+						result.NonTestUsages[sel.Name] = append(result.NonTestUsages[sel.Name], sel.Pos())
+						if config.Debug {
+							fmt.Printf("Non-test usage of method %s\n", sel.Name)
+						}
+					}
+				}
+
+				// Also check if the base type is a known declaration
+				if _, isDeclared := result.Declarations[x.Name]; isDeclared {
+					if isTest {
+						result.TestUsages[x.Name] = append(result.TestUsages[x.Name], x.Pos())
+						if config.Debug {
+							fmt.Printf("Test usage of base type %s\n", x.Name)
+						}
+					} else {
+						result.NonTestUsages[x.Name] = append(result.NonTestUsages[x.Name], x.Pos())
+						if config.Debug {
+							fmt.Printf("Non-test usage of base type %s\n", x.Name)
+						}
+					}
+				}
+			}
+		}
+
+		return true
+	})
+
+	// Perform additional type embedding analysis on this file
+	if config.EnableTypeEmbeddingAnalysis {
+		analyzeTypeEmbeddingForFile(file, pass.Fset, isTest, result, config)
+	}
+}
+
+// processFunctionUsages processes identifier usages within a function
+func processFunctionUsages(fn *ast.FuncDecl, fileName string, result *AnalysisResult, pass *analysis.Pass, config *Config) {
+	// Check if this function is in a test file
+	isTest := isTestFile(fileName, config)
+
+	// Process usage of declarations in the function
+	ast.Inspect(fn, func(n ast.Node) bool {
+		switch node := n.(type) {
+		case *ast.Ident:
+			// Check if this is a reference to a declaration we're tracking
+			if _, exists := result.Declarations[node.Name]; !exists {
+				return true
+			}
+
+			// Record usage based on whether this is a test file
+			if isTest {
+				result.TestUsages[node.Name] = append(result.TestUsages[node.Name], node.Pos())
+				if config.Debug {
+					fmt.Printf("Test usage of %s\n", node.Name)
+				}
+			} else {
+				result.NonTestUsages[node.Name] = append(result.NonTestUsages[node.Name], node.Pos())
+				if config.Debug {
+					fmt.Printf("Non-test usage of %s\n", node.Name)
+				}
+			}
+
+		case *ast.SelectorExpr:
+			// Handle qualified references (pkg.Func or x.Method)
+			if x, ok := node.X.(*ast.Ident); ok {
+				sel := node.Sel
+
+				// Check if this is a package-qualified reference
+				if importPath, ok := result.ImportedPkgs[x.Name]; ok {
+					// Package-qualified reference
+					fullName := importPath + "." + sel.Name
+
+					// Check if this matches one of our tracked declarations
+					for declName, info := range result.Declarations {
+						if info.ImportRef == fullName {
+							if isTest {
+								result.TestUsages[declName] = append(result.TestUsages[declName], sel.Pos())
+								if config.Debug {
+									fmt.Printf("Test usage of imported %s via %s\n", declName, fullName)
+								}
+							} else {
+								result.NonTestUsages[declName] = append(result.NonTestUsages[declName], sel.Pos())
+								if config.Debug {
+									fmt.Printf("Non-test usage of imported %s via %s\n", declName, fullName)
+								}
+							}
+						}
+					}
+				}
+
+				// Also check if the selector (method name) is a known declaration
+				if _, isDeclared := result.Declarations[sel.Name]; isDeclared {
+					if isTest {
+						result.TestUsages[sel.Name] = append(result.TestUsages[sel.Name], sel.Pos())
+						if config.Debug {
+							fmt.Printf("Test usage of method %s\n", sel.Name)
+						}
+					} else {
+						result.NonTestUsages[sel.Name] = append(result.NonTestUsages[sel.Name], sel.Pos())
+						if config.Debug {
+							fmt.Printf("Non-test usage of method %s\n", sel.Name)
+						}
+					}
+				}
+
+				// Also check if the base type is a known declaration
+				if _, isDeclared := result.Declarations[x.Name]; isDeclared {
+					if isTest {
+						result.TestUsages[x.Name] = append(result.TestUsages[x.Name], x.Pos())
+						if config.Debug {
+							fmt.Printf("Test usage of base type %s\n", x.Name)
+						}
+					} else {
+						result.NonTestUsages[x.Name] = append(result.NonTestUsages[x.Name], x.Pos())
+						if config.Debug {
+							fmt.Printf("Non-test usage of base type %s\n", x.Name)
+						}
+					}
+				}
+			}
+		}
+
+		return true
+	})
+}
+
+// processNodeUsages processes identifier usages within any node
+func processNodeUsages(node ast.Node, fileName string, result *AnalysisResult, pass *analysis.Pass, config *Config) {
+	// Check if this node is in a test file
+	isTest := isTestFile(fileName, config)
+
+	// Process usage of declarations in the node
+	ast.Inspect(node, func(n ast.Node) bool {
+		switch node := n.(type) {
+		case *ast.Ident:
+			// Check if this is a reference to a declaration we're tracking
+			if _, exists := result.Declarations[node.Name]; !exists {
+				return true
+			}
+
+			// Record usage based on whether this is a test file
+			if isTest {
+				result.TestUsages[node.Name] = append(result.TestUsages[node.Name], node.Pos())
+				if config.Debug {
+					fmt.Printf("Test usage of %s\n", node.Name)
+				}
+			} else {
+				result.NonTestUsages[node.Name] = append(result.NonTestUsages[node.Name], node.Pos())
+				if config.Debug {
+					fmt.Printf("Non-test usage of %s\n", node.Name)
+				}
+			}
+
+		case *ast.SelectorExpr:
+			// Handle qualified references (pkg.Func or x.Method)
+			if x, ok := node.X.(*ast.Ident); ok {
+				sel := node.Sel
+
+				// Check if this is a package-qualified reference
+				if importPath, ok := result.ImportedPkgs[x.Name]; ok {
+					// Package-qualified reference
+					fullName := importPath + "." + sel.Name
+
+					// Check if this matches one of our tracked declarations
+					for declName, info := range result.Declarations {
+						if info.ImportRef == fullName {
+							if isTest {
+								result.TestUsages[declName] = append(result.TestUsages[declName], sel.Pos())
+								if config.Debug {
+									fmt.Printf("Test usage of imported %s via %s\n", declName, fullName)
+								}
+							} else {
+								result.NonTestUsages[declName] = append(result.NonTestUsages[declName], sel.Pos())
+								if config.Debug {
+									fmt.Printf("Non-test usage of imported %s via %s\n", declName, fullName)
+								}
+							}
+						}
+					}
+				}
+
+				// Also check if the selector (method name) is a known declaration
+				if _, isDeclared := result.Declarations[sel.Name]; isDeclared {
+					if isTest {
+						result.TestUsages[sel.Name] = append(result.TestUsages[sel.Name], sel.Pos())
+						if config.Debug {
+							fmt.Printf("Test usage of method %s\n", sel.Name)
+						}
+					} else {
+						result.NonTestUsages[sel.Name] = append(result.NonTestUsages[sel.Name], sel.Pos())
+						if config.Debug {
+							fmt.Printf("Non-test usage of method %s\n", sel.Name)
+						}
+					}
+				}
+
+				// Also check if the base type is a known declaration
+				if _, isDeclared := result.Declarations[x.Name]; isDeclared {
+					if isTest {
+						result.TestUsages[x.Name] = append(result.TestUsages[x.Name], x.Pos())
+						if config.Debug {
+							fmt.Printf("Test usage of base type %s\n", x.Name)
+						}
+					} else {
+						result.NonTestUsages[x.Name] = append(result.NonTestUsages[x.Name], x.Pos())
+						if config.Debug {
+							fmt.Printf("Non-test usage of base type %s\n", x.Name)
+						}
+					}
+				}
+			}
+		}
+
+		return true
+	})
 }
