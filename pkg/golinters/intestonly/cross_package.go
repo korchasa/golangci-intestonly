@@ -22,7 +22,7 @@ func analyzeCrossPackageReferences(pass *analysis.Pass, result *AnalysisResult, 
 				continue
 			}
 
-			if _, exists := result.NonTestUsages[declName]; exists {
+			if len(result.NonTestUsages[declName]) > 0 {
 				// This is used in non-test code, so it's not test-only
 				continue
 			}
@@ -143,6 +143,8 @@ func analyzeRobustCrossPackageReferences(pass *analysis.Pass, result *AnalysisRe
 }
 
 // processImportedPackage analyzes references from an imported package
+//
+//nolint:unused // Will be used in future implementation
 func processImportedPackage(importedPkg *types.Package, pass *analysis.Pass, result *AnalysisResult, config *Config) {
 	importPath := importedPkg.Path()
 

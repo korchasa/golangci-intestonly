@@ -63,6 +63,8 @@ func generateIssues(pass *analysis.Pass, result *AnalysisResult, config *Config)
 }
 
 // shouldExcludeFile returns true if the file should be excluded from the analysis
+//
+//nolint:unused // Will be used in future implementation
 func shouldExcludeFile(fileName string, config *Config) bool {
 	// Skip test files
 	if isTestFile(fileName, config) || strings.HasSuffix(fileName, "_test.go") {

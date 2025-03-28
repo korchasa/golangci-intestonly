@@ -304,6 +304,8 @@ func propagateInterfaceUsages(result *AnalysisResult, config *Config) {
 }
 
 // trackInterfaceUsage tracks where interfaces and implementing types are used
+//
+//nolint:unused // Will be used in future implementation
 func trackInterfaceUsage(pass *analysis.Pass, result *AnalysisResult, config *Config) {
 	for _, file := range pass.Files {
 		fileName := pass.Fset.File(file.Pos()).Name()

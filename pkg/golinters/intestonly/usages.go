@@ -232,6 +232,8 @@ func analyzeTypeEmbeddingForFile(file *ast.File, fset *token.FileSet, isTest boo
 
 // analyzeTypeEmbedding tracks usage through type embedding
 // This function is kept for backwards compatibility
+//
+//nolint:unused // Will be used in future implementation
 func analyzeTypeEmbedding(pass *analysis.Pass, result *AnalysisResult, config *Config) {
 	// Process each file
 	for _, file := range pass.Files {
@@ -465,6 +467,8 @@ func (result *AnalysisResult) AddNonTestUsage(name string) {
 }
 
 // processFileUsages processes identifier usages in a file
+//
+//nolint:unused // Will be used in future implementation
 func processFileUsages(file *ast.File, fileName string, isTest bool, result *AnalysisResult, pass *analysis.Pass, config *Config) {
 	// Process imports for package references
 	processImports(file, result)
@@ -561,6 +565,8 @@ func processFileUsages(file *ast.File, fileName string, isTest bool, result *Ana
 }
 
 // processFunctionUsages processes identifier usages within a function
+//
+//nolint:unused // Will be used in future implementation
 func processFunctionUsages(fn *ast.FuncDecl, fileName string, result *AnalysisResult, pass *analysis.Pass, config *Config) {
 	// Check if this function is in a test file
 	isTest := isTestFile(fileName, config)
@@ -652,6 +658,8 @@ func processFunctionUsages(fn *ast.FuncDecl, fileName string, result *AnalysisRe
 }
 
 // processNodeUsages processes identifier usages within any node
+//
+//nolint:unused // Will be used in future implementation
 func processNodeUsages(node ast.Node, fileName string, result *AnalysisResult, pass *analysis.Pass, config *Config) {
 	// Check if this node is in a test file
 	isTest := isTestFile(fileName, config)
