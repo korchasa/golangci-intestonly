@@ -64,6 +64,18 @@ type Config struct {
 
 	// Whether to report explicit test-only identifiers regardless of usage
 	ReportExplicitTestCases bool
+
+	// Whether to enable type embedding analysis
+	EnableTypeEmbeddingAnalysis bool
+
+	// Whether to enable reflection usage detection
+	EnableReflectionAnalysis bool
+
+	// Whether to consider reflection-based access as a usage risk
+	ConsiderReflectionRisky bool
+
+	// Whether to enable detection of registry patterns
+	EnableRegistryPatternDetection bool
 }
 
 // AnalysisResult holds the results of the analysis

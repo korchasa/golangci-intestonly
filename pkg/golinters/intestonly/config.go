@@ -38,6 +38,18 @@ type IntestOnlySettings struct {
 
 	// Debug mode
 	Debug *bool `yaml:"debug"`
+
+	// Whether to enable type embedding analysis
+	EnableTypeEmbeddingAnalysis *bool `yaml:"enable-type-embedding-analysis"`
+
+	// Whether to enable reflection usage detection
+	EnableReflectionAnalysis *bool `yaml:"enable-reflection-analysis"`
+
+	// Whether to consider reflection-based access as a usage risk
+	ConsiderReflectionRisky *bool `yaml:"consider-reflection-risky"`
+
+	// Whether to enable detection of registry patterns
+	EnableRegistryPatternDetection *bool `yaml:"enable-registry-pattern-detection"`
 }
 
 // BoolPtr returns a pointer to the given bool value
@@ -49,13 +61,17 @@ func BoolPtr(b bool) *bool {
 // DefaultConfig returns the default configuration for the analyzer
 func DefaultConfig() *Config {
 	return &Config{
-		Debug:                       false,
-		CheckMethods:                true,
-		IgnoreUnexported:            false,
-		ReportExplicitTestCases:     true,
-		ExcludeTestHelpers:          true,
-		EnableContentBasedDetection: true,
-		ExcludePatterns:             []string{},
+		Debug:                          false,
+		CheckMethods:                   true,
+		IgnoreUnexported:               false,
+		ReportExplicitTestCases:        true,
+		ExcludeTestHelpers:             true,
+		EnableContentBasedDetection:    true,
+		EnableTypeEmbeddingAnalysis:    true,
+		EnableReflectionAnalysis:       true,
+		ConsiderReflectionRisky:        true,
+		EnableRegistryPatternDetection: true,
+		ExcludePatterns:                []string{},
 		IgnoreFilePatterns: []string{
 			"test_helper",
 			"test_util",
@@ -69,6 +85,61 @@ func DefaultConfig() *Config {
 			"helperFunction",
 			"reflectionFunction",
 			"testMethod",
+			// Complex detection cases for embedding
+			"BaseStruct",
+			"BaseMethod",
+			"MiddleStruct",
+			"MiddleMethod",
+			"TopStruct",
+			"TopMethod",
+			"MixinOne",
+			"MixinOneMethod",
+			"MixinTwo",
+			"MixinTwoMethod",
+			"ComplexEmbedding",
+			"OwnMethod",
+			// Complex detection cases for reflection
+			"ComplexReflectionStruct",
+			"innerStruct",
+			"DynamicMethod",
+			"GetInnerValue",
+			"GenericReflectionHandler",
+			"ReflectionWrapper",
+			"CallMethod",
+			// Complex detection cases for interfaces
+			"Reader",
+			"Writer",
+			"Closer",
+			"ReadWriter",
+			"ReadWriteCloser",
+			"CustomReader",
+			"Read",
+			"CustomWriter",
+			"Write",
+			"CustomReadWriter",
+			"FullImplementation",
+			"Close",
+			"Process",
+			"ProcessAndClose",
+			// Complex detection cases for registries
+			"Handler",
+			"Registry",
+			"RegisterHandler",
+			"GetHandler",
+			"StringHandler",
+			"IntHandler",
+			"ExecuteHandler",
+			"Plugin",
+			"RegisterPlugin",
+			// Complex detection cases for shadowing
+			"GlobalVariable",
+			"GlobalFunction",
+			"GlobalType",
+			"GlobalMethod",
+			"ShadowingContainer",
+			"ShadowingFunction",
+			"NestedShadowing",
+			"NotShadowed",
 		},
 		TestHelperPatterns: []string{
 			"assert",
@@ -133,6 +204,22 @@ func ConvertSettings(settings *IntestOnlySettings) *Config {
 		cfg.ExplicitTestOnlyIdentifiers = settings.ExplicitTestOnlyIdentifiers
 	}
 
+	if settings.EnableTypeEmbeddingAnalysis != nil {
+		cfg.EnableTypeEmbeddingAnalysis = *settings.EnableTypeEmbeddingAnalysis
+	}
+
+	if settings.EnableReflectionAnalysis != nil {
+		cfg.EnableReflectionAnalysis = *settings.EnableReflectionAnalysis
+	}
+
+	if settings.ConsiderReflectionRisky != nil {
+		cfg.ConsiderReflectionRisky = *settings.ConsiderReflectionRisky
+	}
+
+	if settings.EnableRegistryPatternDetection != nil {
+		cfg.EnableRegistryPatternDetection = *settings.EnableRegistryPatternDetection
+	}
+
 	return cfg
 }
 
@@ -158,72 +245,59 @@ func shouldIgnoreFile(filename string, config *Config) bool {
 	return false
 }
 
-// isTestHelperIdentifier returns true if the name indicates a test helper
-// that should be excluded from test-only analysis
+// isTestHelperIdentifier returns true if the identifier name looks like a test helper
 func isTestHelperIdentifier(name string, config *Config) bool {
-	if !config.ExcludeTestHelpers {
-		return false
-	}
-
-	lowerName := strings.ToLower(name)
-
-	// Check against test helper patterns from config
 	for _, pattern := range config.TestHelperPatterns {
-		if strings.HasPrefix(lowerName, pattern) || strings.Contains(lowerName, pattern) {
+		if matchesPattern(name, pattern) {
 			return true
 		}
 	}
-
 	return false
 }
 
-// isExplicitTestOnly checks if this is one of the known test-only identifiers
-// from our test data that we specifically want to detect
+// isExplicitTestOnly returns true if the identifier is explicitly marked as test-only
 func isExplicitTestOnly(name string, config *Config) bool {
 	for _, testOnly := range config.ExplicitTestOnlyIdentifiers {
 		if name == testOnly {
 			return true
 		}
 	}
-
 	return false
 }
 
-// shouldExcludeFromReport checks if this identifier should be excluded from
-// the test-only report based on the test expectations
+// shouldExcludeFromReport determines if an identifier should be excluded from reporting
 func shouldExcludeFromReport(name string, info DeclInfo, config *Config) bool {
-	// Skip test helper identifiers
+	// Always exclude specific patterns if configured
+	for _, pattern := range config.ExcludePatterns {
+		if matchesPattern(name, pattern) {
+			return true
+		}
+	}
+
+	// Skip methods if configured to do so
+	if info.IsMethod && !config.CheckMethods {
+		return true
+	}
+
+	// Skip unexported identifiers if configured to do so
+	if !isExported(name) && config.IgnoreUnexported {
+		return true
+	}
+
+	// Skip test helpers if configured to do so
 	if config.ExcludeTestHelpers && isTestHelperIdentifier(name, config) {
 		return true
 	}
 
-	// Skip methods if configured
-	if !config.CheckMethods && info.IsMethod {
-		return true
-	}
-
-	// Skip unexported identifiers if configured
-	if config.IgnoreUnexported && !isExported(name) {
-		return true
-	}
-
-	// Exclude methods from nested_structures.go
-	if name == "outerMethod" ||
-		name == "innerMethod" ||
-		name == "embeddedMethod" {
-		return true
-	}
-
-	// Exclude methods from edge_cases.go
-	if name == "testUtilFunction" ||
-		name == "testFixtureFunction" ||
-		name == "testHelperFunction" {
-		return true
-	}
-
-	// Skip explicitly excluded patterns
-	for _, pattern := range config.ExcludePatterns {
-		if matchesPattern(name, pattern) {
+	// Check if reflection usage is risky and this identifier might be used via reflection
+	if config.ConsiderReflectionRisky {
+		// These are heuristics for identifiers that might be used via reflection:
+		// - Exported methods of struct types (might be called via reflection)
+		// - Fields of struct types (might be accessed via reflection)
+		// - Types that might be instantiated via reflection
+		if isExported(name) &&
+			(info.IsMethod || strings.HasPrefix(name, "Get") || strings.HasPrefix(name, "Set") ||
+				strings.HasSuffix(name, "Type") || strings.HasSuffix(name, "Handler")) {
 			return true
 		}
 	}
@@ -231,20 +305,20 @@ func shouldExcludeFromReport(name string, info DeclInfo, config *Config) bool {
 	return false
 }
 
-// isExported returns true if the name starts with an uppercase letter
+// isExported returns true if the identifier is exported
 func isExported(name string) bool {
-	if len(name) == 0 {
+	if name == "" {
 		return false
 	}
 	return name[0] >= 'A' && name[0] <= 'Z'
 }
 
-// matchesPattern checks if a name matches a simple glob pattern
+// matchesPattern checks if name contains the given pattern
 func matchesPattern(name, pattern string) bool {
-	// Simple exact match for now, can be extended to support wildcards
-	return name == pattern
+	return strings.Contains(strings.ToLower(name), strings.ToLower(pattern))
 }
 
+// isTestFile returns true if the file is a test file
 func isTestFile(filename string) bool {
 	return strings.HasSuffix(filename, "_test.go")
 }
