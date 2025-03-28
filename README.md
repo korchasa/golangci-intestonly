@@ -110,26 +110,77 @@ lint:
     - go-intestonly ./...
 ```
 
-### Pre-commit Hook
+## Configuration
 
-Create a pre-commit hook to check before committing:
+### Configuring in .golangci.yml
 
-```bash
-#!/bin/sh
-go-intestonly ./...
+Intestonly offers several configuration options to customize its behavior for your specific codebase:
+
+```yaml
+linters-settings:
+  intestonly:
+    # Whether to check methods (functions with receivers)
+    check-methods: true
+
+    # Whether to ignore unexported identifiers
+    ignore-unexported: false
+
+    # Whether to enable content-based detection
+    enable-content-based-detection: true
+
+    # Whether to exclude test helpers
+    exclude-test-helpers: true
+
+    # Custom patterns for identifying test helpers
+    test-helper-patterns:
+      - assert
+      - mock
+      - fake
+      - stub
+      - setup
+      - cleanup
+
+    # Patterns for files to ignore
+    ignore-file-patterns:
+      - test_helper
+      - test_util
+      - testutil
+      - testhelper
+
+    # Patterns for identifiers to exclude
+    exclude-patterns:
+      - MySpecialCase
+      - LegacyFunction
+
+    # List of explicit test-only identifiers that should always be reported
+    explicit-test-only-identifiers:
+      - testOnlyFunction
+      - TestOnlyType
+      - helperFunction
+
+    # Whether to report explicit test cases regardless of usage
+    report-explicit-test-cases: true
+
+    # Debug mode
+    debug: false
 ```
 
-### Using with Go Commands
+#### Configuration Options
 
-Run as part of your test workflow:
+| Option | Description | Default |
+|--------|-------------|---------|
+| `check-methods` | Check methods (functions with receivers) | `true` |
+| `ignore-unexported` | Ignore unexported identifiers | `false` |
+| `enable-content-based-detection` | Enable detection based on file contents | `true` |
+| `exclude-test-helpers` | Exclude functions that look like test helpers | `true` |
+| `test-helper-patterns` | Patterns for identifying test helpers | `[assert, mock, fake, stub, ...]` |
+| `ignore-file-patterns` | Patterns for files to ignore | `[test_helper, test_util, ...]` |
+| `exclude-patterns` | Identifiers to always exclude | `[]` |
+| `explicit-test-only-identifiers` | Identifiers that should always be reported | `[testOnlyFunction, ...]` |
+| `report-explicit-test-cases` | Report explicit test cases regardless of usage | `true` |
+| `debug` | Enable debug output | `false` |
 
-```bash
-go test ./... && go-intestonly ./...
-```
-
-## Practical Examples
-
-### Example Output
+## Example Output
 
 When the linter detects code only used in tests, it produces output like this:
 
@@ -139,7 +190,7 @@ When the linter detects code only used in tests, it produces output like this:
 /path/to/your/project/constants.go:8:5: const 'testOnlyConstant' is only used in tests
 ```
 
-### Real-world Scenario
+## Example Scenario
 
 Consider this example where a utility function is only referenced in tests:
 
@@ -180,18 +231,22 @@ $ go-intestonly .
 
 ### Core Algorithm
 
-The analyzer uses a two-pass strategy:
+The analyzer uses a multi-pass strategy:
 1. **Collect declarations** from non-test files (functions, types, constants, variables)
 2. **Track identifier usage** in both test and non-test contexts
-3. **Report** identifiers that appear only in test usage contexts as candidates for removal
+3. **Analyze cross-package references** to detect usage across package boundaries
+4. **Perform content-based analysis** to detect implicit usage in strings or comments
+5. **Report** identifiers that appear only in test usage contexts as candidates for removal
 
 ### Smart Detection
 
 The analyzer includes special handling to:
-- Detect test helper patterns by naming conventions
-- Skip test utility files entirely
+- Detect test helper patterns by naming conventions (configurable)
+- Skip test utility files entirely (configurable patterns)
 - Handle method calls through selector expressions
 - Process type usages and embedded types
+- Analyze cross-package references
+- Detect usage in string literals and comments
 
 ### Test Coverage
 
@@ -205,6 +260,7 @@ The analyzer has been tested against various scenarios:
 | False Negatives | Items used through reflection or type assertions | Detected ✓ |
 | Nested Structures | Inner types, methods, embedded types | Properly analyzed ✓ |
 | Interfaces | Interface types, methods, and type aliases | Correctly handled ✓ |
+| Cross-Package | References across package boundaries | Tracked and analyzed ✓ |
 
 ## Project Structure
 
@@ -228,6 +284,7 @@ golangci-intestonly/
 - **Reduced Maintenance**: Fewer lines of code means less to maintain
 - **Improved Build Times**: Remove unnecessary code from compilation
 - **Better Documentation**: Clarify what code is actually used in production
+- **Customizable**: Adapt to your codebase's specific needs via configuration
 
 ## License
 

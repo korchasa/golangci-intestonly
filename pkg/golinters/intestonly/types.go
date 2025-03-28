@@ -34,13 +34,36 @@ func (i *Issue) ToAnalysisIssue(pass *analysis.Pass) analysis.Diagnostic {
 
 // Config holds configuration options for the intestonly analyzer
 type Config struct {
-	Debug                       bool     // Enable debug output
-	CheckMethods                bool     // Check method declarations
-	ReportExplicitTestCases     bool     // Always report test cases from testdata
-	ExcludeTestHelpers          bool     // Exclude identifiers that look like test helpers
-	EnableContentBasedDetection bool     // Enable detection based on file contents
-	ExcludePatterns             []string // Patterns to exclude from reporting
-	TestHelperPatterns          []string // Patterns for test helper identification
+	// Whether to check methods (functions with receivers)
+	CheckMethods bool
+
+	// Whether to ignore unexported identifiers
+	IgnoreUnexported bool
+
+	// Whether to enable content-based usage detection
+	// (checking for identifiers in file content)
+	EnableContentBasedDetection bool
+
+	// Whether to exclude test helpers from reporting
+	ExcludeTestHelpers bool
+
+	// Whether to output debug information
+	Debug bool
+
+	// Custom patterns for identifying test helpers
+	TestHelperPatterns []string
+
+	// Patterns for files to ignore in analysis
+	IgnoreFilePatterns []string
+
+	// Patterns for identifiers to always exclude from reporting
+	ExcludePatterns []string
+
+	// List of explicit test-only identifiers that should always be reported
+	ExplicitTestOnlyIdentifiers []string
+
+	// Whether to report explicit test-only identifiers regardless of usage
+	ReportExplicitTestCases bool
 }
 
 // AnalysisResult holds the results of the analysis
