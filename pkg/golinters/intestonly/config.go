@@ -7,8 +7,8 @@ import (
 	"golang.org/x/tools/go/analysis"
 )
 
-// getConfig creates a default config and can be extended to support analyzer flags
-func getConfig(pass *analysis.Pass) *Config {
+// DefaultConfig returns the default configuration for the analyzer
+func DefaultConfig() *Config {
 	return &Config{
 		Debug:                       false,
 		CheckMethods:                true,
@@ -16,7 +16,23 @@ func getConfig(pass *analysis.Pass) *Config {
 		ExcludeTestHelpers:          true,
 		EnableContentBasedDetection: true,
 		ExcludePatterns:             []string{},
+		TestHelperPatterns: []string{
+			"assert",
+			"mock",
+			"fake",
+			"stub",
+			"setup",
+			"cleanup",
+			"testhelper",
+			"mockdb",
+		},
 	}
+}
+
+// getConfig creates a default config and can be extended to support analyzer flags
+func getConfig(pass *analysis.Pass) *Config {
+	// Use the default configuration
+	return DefaultConfig()
 }
 
 // shouldIgnoreFile returns true if the file should be ignored for analysis
@@ -32,18 +48,17 @@ func shouldIgnoreFile(filename string, config *Config) bool {
 // isTestHelperIdentifier returns true if the name indicates a test helper
 // that should be excluded from test-only analysis
 func isTestHelperIdentifier(name string, config *Config) bool {
+	if !config.ExcludeTestHelpers {
+		return false
+	}
+
 	lowerName := strings.ToLower(name)
 
-	// Exclude common test helper patterns
-	if strings.HasPrefix(lowerName, "assert") ||
-		strings.HasPrefix(lowerName, "mock") ||
-		strings.HasPrefix(lowerName, "fake") ||
-		strings.HasPrefix(lowerName, "stub") ||
-		strings.HasPrefix(lowerName, "setup") ||
-		strings.HasPrefix(lowerName, "cleanup") ||
-		strings.Contains(lowerName, "mockdb") ||
-		strings.Contains(lowerName, "testhelper") {
-		return true
+	// Check against test helper patterns from config
+	for _, pattern := range config.TestHelperPatterns {
+		if strings.HasPrefix(lowerName, pattern) || strings.Contains(lowerName, pattern) {
+			return true
+		}
 	}
 
 	return false

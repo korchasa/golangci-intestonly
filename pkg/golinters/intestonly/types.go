@@ -2,6 +2,8 @@ package intestonly
 
 import (
 	"go/token"
+
+	"golang.org/x/tools/go/analysis"
 )
 
 // DeclInfo stores information about a declaration
@@ -20,6 +22,16 @@ type Issue struct {
 	Message string    // Message describing the issue
 }
 
+// ToAnalysisIssue converts an internal issue to a diagnostic for reporting
+// This method can be used for integration with golangci-lint if needed
+func (i *Issue) ToAnalysisIssue(pass *analysis.Pass) analysis.Diagnostic {
+	return analysis.Diagnostic{
+		Pos:      i.Pos,
+		Message:  i.Message,
+		Category: "intestonly",
+	}
+}
+
 // Config holds configuration options for the intestonly analyzer
 type Config struct {
 	Debug                       bool     // Enable debug output
@@ -28,6 +40,7 @@ type Config struct {
 	ExcludeTestHelpers          bool     // Exclude identifiers that look like test helpers
 	EnableContentBasedDetection bool     // Enable detection based on file contents
 	ExcludePatterns             []string // Patterns to exclude from reporting
+	TestHelperPatterns          []string // Patterns for test helper identification
 }
 
 // AnalysisResult holds the results of the analysis

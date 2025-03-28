@@ -44,7 +44,9 @@ func run(pass *analysis.Pass) (interface{}, error) {
 	// Step 5: Generate and report issues
 	issues := generateIssues(pass, result, config)
 	for _, issue := range issues {
-		pass.Reportf(issue.Pos, issue.Message)
+		// Use ToAnalysisIssue to convert the issue to a standard diagnostic
+		diag := issue.ToAnalysisIssue(pass)
+		pass.Report(diag)
 	}
 
 	return nil, nil
