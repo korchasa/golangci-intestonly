@@ -73,6 +73,8 @@ func TestAllCases(t *testing.T) {
 
 	for _, dir := range testDirs {
 		t.Run(dir, func(t *testing.T) {
+			// Reset global result before each test to ensure a fresh state
+			intestonly.ResetGlobalResult()
 			analysistest.Run(t, testdata, intestonly.Analyzer, dir)
 		})
 	}
@@ -82,6 +84,19 @@ func TestAllCases(t *testing.T) {
 func TestConfiguration(t *testing.T) {
 	// Test default configuration
 	cfg := intestonly.DefaultConfig()
+
+	// Check default values for user-configurable options
+	if cfg.Debug {
+		t.Error("Default config should have Debug=false")
+	}
+	if len(cfg.OverrideIsCodeFiles) == 0 {
+		t.Error("Default config should have non-empty OverrideIsCodeFiles")
+	}
+	if len(cfg.OverrideIsTestFiles) != 0 {
+		t.Error("Default config should have empty OverrideIsTestFiles")
+	}
+
+	// Check default values for hardcoded options
 	if !cfg.CheckMethods {
 		t.Error("Default config should have CheckMethods=true")
 	}
@@ -94,58 +109,35 @@ func TestConfiguration(t *testing.T) {
 	if len(cfg.TestHelperPatterns) == 0 {
 		t.Error("Default config should have non-empty TestHelperPatterns")
 	}
-	if len(cfg.IgnoreFilePatterns) == 0 {
-		t.Error("Default config should have non-empty IgnoreFilePatterns")
-	}
 
-	// Test advanced detection settings
-	if !cfg.EnableTypeEmbeddingAnalysis {
-		t.Error("Default config should have EnableTypeEmbeddingAnalysis=true")
-	}
-	if !cfg.EnableReflectionAnalysis {
-		t.Error("Default config should have EnableReflectionAnalysis=true")
-	}
-	if !cfg.ConsiderReflectionRisky {
-		t.Error("Default config should have ConsiderReflectionRisky=true")
-	}
-	if !cfg.EnableRegistryPatternDetection {
-		t.Error("Default config should have EnableRegistryPatternDetection=true")
-	}
-
-	// Test convertSettings function
+	// Test convertSettings function with user-configurable options
 	settings := &intestonly.IntestOnlySettings{
-		CheckMethods:                   intestonly.BoolPtr(false),
-		IgnoreUnexported:               intestonly.BoolPtr(true),
-		EnableContentBasedDetection:    intestonly.BoolPtr(false),
-		EnableTypeEmbeddingAnalysis:    intestonly.BoolPtr(false),
-		EnableReflectionAnalysis:       intestonly.BoolPtr(false),
-		ConsiderReflectionRisky:        intestonly.BoolPtr(false),
-		EnableRegistryPatternDetection: intestonly.BoolPtr(false),
-		TestHelperPatterns:             []string{"custom_pattern"},
-		IgnoreFilePatterns:             []string{"custom_ignore"},
-		ExcludePatterns:                []string{"custom_exclude"},
+		Debug:               intestonly.BoolPtr(true),
+		OverrideIsCodeFiles: []string{"custom_ignore"},
+		OverrideIsTestFiles: []string{"custom_test.go"},
 	}
 
 	customCfg := intestonly.ConvertSettings(settings)
-	if customCfg.CheckMethods {
-		t.Error("Custom config should have CheckMethods=false")
+
+	// Check that user-configurable options are respected
+	if !customCfg.Debug {
+		t.Error("Custom config should have Debug=true")
 	}
-	if !customCfg.IgnoreUnexported {
-		t.Error("Custom config should have IgnoreUnexported=true")
+	if len(customCfg.OverrideIsCodeFiles) != 1 || customCfg.OverrideIsCodeFiles[0] != "custom_ignore" {
+		t.Errorf("Custom config should have OverrideIsCodeFiles=[\"custom_ignore\"], got %v", customCfg.OverrideIsCodeFiles)
 	}
-	if customCfg.EnableContentBasedDetection {
-		t.Error("Custom config should have EnableContentBasedDetection=false")
+	if len(customCfg.OverrideIsTestFiles) != 1 || customCfg.OverrideIsTestFiles[0] != "custom_test.go" {
+		t.Errorf("Custom config should have OverrideIsTestFiles=[\"custom_test.go\"], got %v", customCfg.OverrideIsTestFiles)
 	}
-	if customCfg.EnableTypeEmbeddingAnalysis {
-		t.Error("Custom config should have EnableTypeEmbeddingAnalysis=false")
+
+	// Check that hardcoded options remain unchanged
+	if !customCfg.CheckMethods {
+		t.Error("Custom config should have CheckMethods=true")
 	}
-	if customCfg.EnableReflectionAnalysis {
-		t.Error("Custom config should have EnableReflectionAnalysis=false")
+	if !customCfg.ExcludeTestHelpers {
+		t.Error("Custom config should have ExcludeTestHelpers=true")
 	}
-	if customCfg.ConsiderReflectionRisky {
-		t.Error("Custom config should have ConsiderReflectionRisky=false")
-	}
-	if customCfg.EnableRegistryPatternDetection {
-		t.Error("Custom config should have EnableRegistryPatternDetection=false")
+	if !customCfg.EnableContentBasedDetection {
+		t.Error("Custom config should have EnableContentBasedDetection=true")
 	}
 }

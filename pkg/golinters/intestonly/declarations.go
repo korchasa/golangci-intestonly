@@ -91,11 +91,6 @@ func processFuncDecl(n *ast.FuncDecl, fileName, pkgPath string, result *Analysis
 
 	name := n.Name.Name
 
-	// Skip test helper identifiers unless they're explicit test cases
-	if isTestHelperIdentifier(name, config) {
-		return
-	}
-
 	importRef := pkgPath + "." + name
 	result.ImportRefs[importRef] = name
 
@@ -150,11 +145,6 @@ func processTypeSpec(n *ast.TypeSpec, fileName, pkgPath string, result *Analysis
 
 	name := n.Name.Name
 
-	// Skip test helper identifiers unless they're explicit test cases
-	if isTestHelperIdentifier(name, config) {
-		return
-	}
-
 	importRef := pkgPath + "." + name
 	result.ImportRefs[importRef] = name
 
@@ -184,11 +174,6 @@ func processTypeSpec(n *ast.TypeSpec, fileName, pkgPath string, result *Analysis
 func processValueSpec(n *ast.ValueSpec, fileName, pkgPath string, result *AnalysisResult, config *Config, declType DeclType, isTest bool) {
 	for _, name := range n.Names {
 		if name == nil || name.Name == "" {
-			continue
-		}
-
-		// Skip test helper identifiers unless they're explicit test cases
-		if isTestHelperIdentifier(name.Name, config) {
 			continue
 		}
 

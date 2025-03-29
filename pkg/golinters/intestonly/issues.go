@@ -39,6 +39,44 @@ func generateIssues(pass *analysis.Pass, result *AnalysisResult, config *Config)
 		}
 	}
 
+	// Check for explicit test-only identifiers first
+	for name, decl := range result.Declarations {
+		// Skip declarations in test files
+		if isTestFile(decl.FilePath, config) {
+			continue
+		}
+
+  // Check if this is an explicit test-only identifier
+		if containsString(config.ExplicitTestOnlyIdentifiers, name) {
+			var declTypeStr string
+			switch decl.DeclType {
+			case DeclFunction:
+				declTypeStr = "function"
+			case DeclMethod:
+				declTypeStr = "method"
+			case DeclTypeDecl:
+				declTypeStr = "type"
+			case DeclConstant:
+				declTypeStr = "const"
+			case DeclVariable:
+				declTypeStr = "variable"
+			default:
+				declTypeStr = "identifier"
+			}
+
+			issue := Issue{
+				Pos:     decl.Pos,
+				Message: fmt.Sprintf("%s '%s' is only used in tests", declTypeStr, name),
+			}
+
+			issues = append(issues, issue)
+
+			if config.Debug {
+				fmt.Printf("Reporting explicit test-only issue: %s\n", issue.Message)
+			}
+		}
+	}
+
 	// First collect declarations by receiver type
 	methodsByType := make(map[string][]string)
 	for name, decl := range result.Declarations {
@@ -236,16 +274,6 @@ func generateIssues(pass *analysis.Pass, result *AnalysisResult, config *Config)
 
 	// Process all other declarations (functions, variables, constants)
 	for name, decl := range result.Declarations {
-		// Skip type declarations (already processed)
-		if decl.DeclType == DeclTypeDecl {
-			continue
-		}
-
-		// Skip method declarations (already processed)
-		if decl.DeclType == DeclMethod {
-			continue
-		}
-
 		// Skip declarations in test files
 		if isTestFile(decl.FilePath, config) {
 			continue
@@ -303,6 +331,8 @@ func generateIssues(pass *analysis.Pass, result *AnalysisResult, config *Config)
 				declTypeStr = "function"
 			case DeclMethod:
 				declTypeStr = "method"
+			case DeclTypeDecl:
+				declTypeStr = "type"
 			case DeclConstant:
 				declTypeStr = "const"
 			case DeclVariable:
@@ -325,4 +355,14 @@ func generateIssues(pass *analysis.Pass, result *AnalysisResult, config *Config)
 	}
 
 	return issues
+}
+
+// containsString checks if a string slice contains a given string
+func containsString(slice []string, str string) bool {
+	for _, s := range slice {
+		if s == str {
+			return true
+		}
+	}
+	return false
 }

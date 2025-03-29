@@ -3,6 +3,7 @@
 package intestonly
 
 import (
+	"fmt"
 	"go/ast"
 	"go/token"
 
@@ -18,33 +19,107 @@ func getFileName(fset *token.FileSet, pos token.Pos) string {
 
 // analyzeUsages processes all files to find where declarations are used
 func analyzeUsages(pass *analysis.Pass, result *AnalysisResult, config *Config) {
-	// Используем инспектор для обхода всех узлов типа *ast.Ident во всех файлах
+	// Use the inspector to traverse all nodes of type *ast.Ident in all files
 	insp := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
+
+	// Define node filter for identifiers and selector expressions
 	nodeFilter := []ast.Node{
 		(*ast.Ident)(nil),
+		(*ast.SelectorExpr)(nil),
 	}
 
-	insp.Preorder(nodeFilter, func(n ast.Node) {
-		ident, ok := n.(*ast.Ident)
-		if !ok || ident.Name == "_" {
-			return
-		}
-		// Новая функция для получения имени файла
-		fileName := getFileName(pass.Fset, ident.Pos())
+	// Process each file separately to ensure we correctly track test vs non-test usages
+	for _, file := range pass.Files {
+		fileName := getFileName(pass.Fset, file.Pos())
 		isTest := isTestFile(fileName, config)
-		if decl, exists := result.Declarations[ident.Name]; exists {
-			if decl.Pos == ident.Pos() {
-				return
-			}
-			usage := UsageInfo{
-				Pos:      ident.Pos(),
-				FilePath: fileName,
-				IsTest:   isTest,
-			}
-			// Записываем использование посредством вспомогательной функции
-			recordUsage(result, ident.Name, usage, isTest)
+
+		// Skip files that should be ignored
+		if shouldIgnoreFile(fileName, config) {
+			continue
 		}
-	})
+
+		// Set current file in config for reference in other functions
+		config.CurrentFile = fileName
+
+		// Process all identifiers in this file
+		insp.WithStack(nodeFilter, func(n ast.Node, push bool, stack []ast.Node) bool {
+			if !push {
+				return true // Skip node when popping the stack
+			}
+
+			switch node := n.(type) {
+			case *ast.Ident:
+				if node.Name == "_" {
+					return true // Skip blank identifier
+				}
+
+				// Skip if this is a declaration position
+				if _, isDeclPos := result.DeclPositions[node.Pos()]; isDeclPos {
+					return true
+				}
+
+				// Check if this is a declaration we're tracking
+				if decl, exists := result.Declarations[node.Name]; exists {
+					// Skip self-references
+					if decl.Pos == node.Pos() {
+						return true
+					}
+
+					usage := UsageInfo{
+						Pos:      node.Pos(),
+						FilePath: fileName,
+						IsTest:   isTest,
+					}
+
+					// Record the usage
+					recordUsage(result, node.Name, usage, isTest)
+
+					if config.Debug {
+						if isTest {
+							fmt.Printf("Function used in test: %s\n", node.Name)
+						} else {
+							fmt.Printf("Function used in production: %s\n", node.Name)
+						}
+					}
+				}
+
+			case *ast.SelectorExpr:
+				// Handle package-qualified identifiers (e.g., pkg.Func)
+				if x, ok := node.X.(*ast.Ident); ok {
+					// Check if this is an imported package
+					if importPath, ok := result.ImportedPkgs[x.Name]; ok {
+						fullName := importPath + "." + node.Sel.Name
+
+						// Check if this matches any of our tracked declarations
+						for declName, info := range result.Declarations {
+							if info.ImportRef == fullName {
+								usage := UsageInfo{
+									Pos:      node.Sel.Pos(),
+									FilePath: fileName,
+									IsTest:   isTest,
+								}
+
+								// Record the usage
+								recordUsage(result, declName, usage, isTest)
+
+								if config.Debug {
+									if isTest {
+										fmt.Printf("External cross-package test usage: %s in %s\n", 
+											fullName, fileName)
+									} else {
+										fmt.Printf("External cross-package non-test usage: %s in %s\n", 
+											fullName, fileName)
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+
+			return true
+		})
+	}
 
 	// Дополнительные анализы не изменяются
 	if config.EnableTypeEmbeddingAnalysis {

@@ -222,6 +222,7 @@ func TestPropagateCallDependencies(t *testing.T) {
 		name                string
 		setupResult         func(*AnalysisResult)
 		expectedPropagation map[string]bool // functions that should be marked as used in tests
+		setupTestUsages     map[string]bool // Track which functions were marked as used in tests in the setup
 	}{
 		{
 			name: "should propagate to functions called by test-only functions",
@@ -250,6 +251,9 @@ func TestPropagateCallDependencies(t *testing.T) {
 			},
 			expectedPropagation: map[string]bool{
 				"helperFunc": true,
+			},
+			setupTestUsages: map[string]bool{
+				"testOnlyFunc": true,
 			},
 		},
 		{
@@ -284,6 +288,10 @@ func TestPropagateCallDependencies(t *testing.T) {
 			expectedPropagation: map[string]bool{
 				// dualUsageFunc should not be in expectedPropagation as it's already used in production
 			},
+			setupTestUsages: map[string]bool{
+				"testOnlyFunc": true,
+				"dualUsageFunc": true,
+			},
 		},
 		{
 			name: "should skip non-function declarations",
@@ -306,6 +314,11 @@ func TestPropagateCallDependencies(t *testing.T) {
 			expectedPropagation: map[string]bool{
 				// Only functions should be processed, someType and someConst should be skipped
 			},
+			setupTestUsages: map[string]bool{
+				"testOnlyFunc": true,
+				"someType": true,
+				"someConst": true,
+			},
 		},
 		{
 			name: "should handle methods correctly",
@@ -326,6 +339,9 @@ func TestPropagateCallDependencies(t *testing.T) {
 			},
 			expectedPropagation: map[string]bool{
 				"helperFunc": true,
+			},
+			setupTestUsages: map[string]bool{
+				"TestStruct.TestMethod": true,
 			},
 		},
 	}
@@ -373,14 +389,12 @@ func TestPropagateCallDependencies(t *testing.T) {
 			// make sure they weren't incorrectly marked
 			for funcName, declInfo := range result.Declarations {
 				if declInfo.DeclType == DeclFunction || declInfo.DeclType == DeclMethod {
-					// Skip functions that were already marked as used in tests before the test
-					wasMarkedBefore := false
-					if _, ok := result.TestUsages[funcName]; ok && len(result.TestUsages[funcName]) > 0 &&
-						result.TestUsages[funcName][0].Pos != token.NoPos {
-						wasMarkedBefore = true
-					}
+					// Skip functions that were already marked as used in tests in the test setup
+					// In the test setup, we're using UsageInfo{{IsTest: true}} which has Pos = 0 (token.NoPos)
+					// So we need to check if the function was already in TestUsages before the test
+					_, wasInTestUsages := tt.setupTestUsages[funcName]
 
-					if !wasMarkedBefore {
+					if !wasInTestUsages {
 						// If not in the expected propagation map, it shouldn't be marked
 						if !tt.expectedPropagation[funcName] {
 							_, marked := result.TestUsages[funcName]
@@ -445,24 +459,24 @@ func (m *myStruct) Method() {
 	analyzeFunctionCalls(file, result, config)
 
 	// Check if the call graph was populated correctly
-	if !containsString(result.CallGraph["main"], "helper") {
+	if !testContainsString(result.CallGraph["main"], "helper") {
 		t.Errorf("main should call helper")
 	}
-	if !containsString(result.CalledBy["helper"], "main") {
+	if !testContainsString(result.CalledBy["helper"], "main") {
 		t.Errorf("helper should be called by main")
 	}
 
-	if !containsString(result.CallGraph["helper"], "another") {
+	if !testContainsString(result.CallGraph["helper"], "another") {
 		t.Errorf("helper should call another")
 	}
-	if !containsString(result.CalledBy["another"], "helper") {
+	if !testContainsString(result.CalledBy["another"], "helper") {
 		t.Errorf("another should be called by helper")
 	}
 
-	if !containsString(result.CallGraph["main"], "myStruct.Method") {
+	if !testContainsString(result.CallGraph["main"], "myStruct.Method") {
 		t.Errorf("main should call myStruct.Method")
 	}
-	if !containsString(result.CalledBy["myStruct.Method"], "main") {
+	if !testContainsString(result.CalledBy["myStruct.Method"], "main") {
 		t.Errorf("myStruct.Method should be called by main")
 	}
 }
@@ -473,7 +487,7 @@ func parseSource(src string, fset *token.FileSet) (*ast.File, error) {
 }
 
 // Helper function to check if a string slice contains a given string
-func containsString(slice []string, str string) bool {
+func testContainsString(slice []string, str string) bool {
 	for _, s := range slice {
 		if s == str {
 			return true

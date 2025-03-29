@@ -49,81 +49,40 @@ func (i *Issue) ToAnalysisIssue(pass *analysis.Pass) analysis.Diagnostic {
 
 // Config holds configuration options for the intestonly analyzer
 type Config struct {
-	// Whether to check methods (functions with receivers)
-	CheckMethods bool
-
-	// Whether to ignore unexported identifiers
-	IgnoreUnexported bool
-
-	// Whether to enable content-based usage detection
-	// (checking for identifiers in file content)
-	EnableContentBasedDetection bool
-
-	// Whether to exclude test helpers from reporting
-	ExcludeTestHelpers bool
-
 	// Whether to output debug information
 	Debug bool
 
-	// Custom patterns for identifying test helpers
-	TestHelperPatterns []string
+	// Patterns for files to override as code files (not test files)
+	OverrideIsCodeFiles []string
 
-	// Patterns for files to ignore in analysis
-	IgnoreFilePatterns []string
+	// Patterns for files to override as test files
+	OverrideIsTestFiles []string
 
-	// Patterns for identifiers to always exclude from reporting
-	ExcludePatterns []string
-
-	// List of explicit test-only identifiers that should always be reported
-	ExplicitTestOnlyIdentifiers []string
-
-	// Whether to report explicit test-only identifiers regardless of usage
-	ReportExplicitTestCases bool
-
-	// Whether to enable type embedding analysis
-	EnableTypeEmbeddingAnalysis bool
-
-	// Whether to enable reflection usage detection
-	EnableReflectionAnalysis bool
-
-	// Whether to consider reflection-based access as a usage risk
-	ConsiderReflectionRisky bool
-
-	// Whether to enable detection of registry patterns
-	EnableRegistryPatternDetection bool
-
-	// Whether to enable call graph analysis for more accurate dependency tracking
-	EnableCallGraphAnalysis bool
-
-	// Whether to enable enhanced interface implementation detection
-	EnableInterfaceImplementationDetection bool
-
-	// Whether to perform deeper cross-package reference analysis
-	EnableRobustCrossPackageAnalysis bool
-
-	// Whether to apply special handling for exported identifiers
-	EnableExportedIdentifierHandling bool
-
-	// Whether to consider exported constants used even if no direct usage is found
-	ConsiderExportedConstantsUsed bool
-
-	// Additional test files patterns to consider as test files
-	AdditionalTests []string
-
-	// List of files to ignore
-	IgnoreFiles []string
-
-	// List of directories to ignore
-	IgnoreDirectories []string
-
-	// List of explicit test cases to check
-	ExplicitTestCases []string
-
-	// List of patterns to identify files to ignore
-	IgnoreDirPatterns []string
-
-	// Current file being processed
+	// Current file being processed (internal use only)
 	CurrentFile string
+
+	// The following fields are hardcoded and not configurable by users
+	CheckMethods                           bool
+	IgnoreUnexported                       bool
+	EnableContentBasedDetection            bool
+	ExcludeTestHelpers                     bool
+	TestHelperPatterns                     []string
+	ExcludePatterns                        []string
+	ExplicitTestOnlyIdentifiers            []string
+	ReportExplicitTestCases                bool
+	EnableTypeEmbeddingAnalysis            bool
+	EnableReflectionAnalysis               bool
+	ConsiderReflectionRisky                bool
+	EnableRegistryPatternDetection         bool
+	EnableCallGraphAnalysis                bool
+	EnableInterfaceImplementationDetection bool
+	EnableRobustCrossPackageAnalysis       bool
+	EnableExportedIdentifierHandling       bool
+	ConsiderExportedConstantsUsed          bool
+	IgnoreFiles                            []string
+	IgnoreDirectories                      []string
+	ExplicitTestCases                      []string
+	IgnoreDirPatterns                      []string
 }
 
 // AnalysisResult holds the results of the analysis
@@ -149,8 +108,11 @@ type AnalysisResult struct {
 	ExportedDecls map[string]bool // Set of exported declarations
 
 	// Cross-package reference tracking
-	CrossPackageTestRefs map[string]bool // Map of references from test files in other packages
-	CrossPackageRefs     map[string]bool // Map of references from non-test files in other packages
+	CrossPackageTestRefs map[string]bool                // Map of references from test files in other packages
+	CrossPackageRefs     map[string]bool                // Map of references from non-test files in other packages
+	CrossPackageRefsList map[string][]string            // Map of import paths to slices of referenced identifiers
+	PackageImports       map[string]map[string]bool     // Map of import paths to maps of imported identifiers
+	TestPackageImports   map[string]map[string]bool     // Map of import paths to maps of imported identifiers in test files
 }
 
 // UsageInfo stores information about where a declaration is used
@@ -177,5 +139,8 @@ func NewAnalysisResult() *AnalysisResult {
 		ExportedDecls:        make(map[string]bool),
 		CrossPackageTestRefs: make(map[string]bool),
 		CrossPackageRefs:     make(map[string]bool),
+		CrossPackageRefsList: make(map[string][]string),
+		PackageImports:       make(map[string]map[string]bool),
+		TestPackageImports:   make(map[string]map[string]bool),
 	}
 }

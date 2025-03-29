@@ -191,7 +191,13 @@ func propagateTestUsage(rootFunc string, result *AnalysisResult, visited map[str
 	if callees, exists := result.CallGraph[rootFunc]; exists {
 		for _, callee := range callees {
 			// If this callee is a declaration in our package
-			if _, isDeclared := result.Declarations[callee]; isDeclared {
+			declInfo, isDeclared := result.Declarations[callee]
+			if isDeclared {
+				// Only propagate to functions and methods
+				if declInfo.DeclType != DeclFunction && declInfo.DeclType != DeclMethod {
+					continue
+				}
+
 				// Add a fake position to indicate it's called indirectly
 				if _, alreadyMarked := result.TestUsages[callee]; !alreadyMarked {
 					if config.Debug {

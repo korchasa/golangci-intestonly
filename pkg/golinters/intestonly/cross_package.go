@@ -10,14 +10,13 @@ import (
 	"golang.org/x/tools/go/analysis"
 )
 
-// Global map to track cross-package references
-var crossPackageRefs = make(map[string][]string) // importPath -> slices of referenced identifiers
+// crossPackageRefs is a map to track cross-package references
+// It's defined as a field in AnalysisResult to avoid global state
 
 // analyzeCrossPackageReferences analyzes references to declarations from other packages
 func analyzeCrossPackageReferences(pass *analysis.Pass, result *AnalysisResult, config *Config) {
-	// Use a unified approach to tracking imported packages and their declarations
-	importedPackages := make(map[string]map[string]bool)     // map[importPath]map[identifier]isImported
-	testImportedPackages := make(map[string]map[string]bool) // track test imports separately
+	// Use the fields in AnalysisResult to track imported packages and their declarations
+	// These are already initialized in NewAnalysisResult
 
 	// Process each file in the package
 	for _, file := range pass.Files {
@@ -49,12 +48,12 @@ func analyzeCrossPackageReferences(pass *analysis.Pass, result *AnalysisResult, 
 
 				// Track this imported package
 				if isTest {
-					if _, exists := testImportedPackages[importPath]; !exists {
-						testImportedPackages[importPath] = make(map[string]bool)
+					if _, exists := result.TestPackageImports[importPath]; !exists {
+						result.TestPackageImports[importPath] = make(map[string]bool)
 					}
 				} else {
-					if _, exists := importedPackages[importPath]; !exists {
-						importedPackages[importPath] = make(map[string]bool)
+					if _, exists := result.PackageImports[importPath]; !exists {
+						result.PackageImports[importPath] = make(map[string]bool)
 					}
 				}
 			}
@@ -80,29 +79,29 @@ func analyzeCrossPackageReferences(pass *analysis.Pass, result *AnalysisResult, 
 
 				// Record that this imported identifier is used
 				if isTest {
-					if testImportedPackages[pkgPath] != nil {
-						testImportedPackages[pkgPath][selectorExpr.Sel.Name] = true
+					if result.TestPackageImports[pkgPath] != nil {
+						result.TestPackageImports[pkgPath][selectorExpr.Sel.Name] = true
 					}
 
-					// Add to the global tracking map for test references
-					if _, exists := crossPackageRefs[pkgPath]; !exists {
-						crossPackageRefs[pkgPath] = []string{}
+					// Add to the tracking map for test references
+					if _, exists := result.CrossPackageRefsList[pkgPath]; !exists {
+						result.CrossPackageRefsList[pkgPath] = []string{}
 					}
 
 					// Add this identifier to the list of cross-package references if not already there
 					found := false
-					for _, ident := range crossPackageRefs[pkgPath] {
+					for _, ident := range result.CrossPackageRefsList[pkgPath] {
 						if ident == selectorExpr.Sel.Name {
 							found = true
 							break
 						}
 					}
 					if !found {
-						crossPackageRefs[pkgPath] = append(crossPackageRefs[pkgPath], selectorExpr.Sel.Name)
+						result.CrossPackageRefsList[pkgPath] = append(result.CrossPackageRefsList[pkgPath], selectorExpr.Sel.Name)
 					}
 				} else {
-					if importedPackages[pkgPath] != nil {
-						importedPackages[pkgPath][selectorExpr.Sel.Name] = true
+					if result.PackageImports[pkgPath] != nil {
+						result.PackageImports[pkgPath][selectorExpr.Sel.Name] = true
 					}
 				}
 
@@ -199,8 +198,8 @@ func analyzeCrossPackageReferences(pass *analysis.Pass, result *AnalysisResult, 
 				}
 			}
 
-			// Check global cross-package references map
-			if identifiers, exists := crossPackageRefs[result.CurrentPkgPath]; exists {
+			// Check cross-package references map in AnalysisResult
+			if identifiers, exists := result.CrossPackageRefsList[result.CurrentPkgPath]; exists {
 				for _, ident := range identifiers {
 					if ident == declInfo.Name {
 						// This package's declaration is referenced from a test in another package
@@ -254,91 +253,17 @@ func analyzeCrossPackageReferences(pass *analysis.Pass, result *AnalysisResult, 
 
 // traceCrossPackageCallGraph uses the built call graph to find paths from test-only to production code
 func traceCrossPackageCallGraph(result *AnalysisResult, config *Config) {
-	// Create a map to track usages through the call graph
-	usagePaths := make(map[string]bool) // Track identifiers that have paths to production code
+	// This function previously had logic that would mark a function as used in production
+	// if it was called by a function used in production. This is incorrect for our use case.
+	// A function that's only called by test code should be considered test-only,
+	// even if it calls a function that's used in production.
 
-	// First, find all functions that are used in production code
-	prodUsedFuncs := make(map[string]bool)
-	for name := range result.Declarations {
-		if nonTestUsages := len(result.Usages[name]); nonTestUsages > 0 {
-			if config.Debug {
+	// For debugging only
+	if config.Debug {
+		// First, find all functions that are used in production code
+		for name := range result.Declarations {
+			if nonTestUsages := len(result.Usages[name]); nonTestUsages > 0 {
 				fmt.Printf("Function used in production: %s\n", name)
-			}
-			prodUsedFuncs[name] = true
-		}
-	}
-
-	// Now, for each function that's used in test but not production,
-	// check if there's a path to it from a production-used function
-	for name, declInfo := range result.Declarations {
-		if declInfo.DeclType != DeclFunction && declInfo.DeclType != DeclMethod {
-			continue // Only care about functions and methods
-		}
-
-		// If this function has test usages, but no direct production usages
-		if testUsages := len(result.TestUsages[name]); testUsages > 0 {
-			if prodUsages := len(result.Usages[name]); prodUsages == 0 {
-				// Check if any function that calls this one is used in production
-				if callers, ok := result.CalledBy[name]; ok {
-					for _, caller := range callers {
-						if prodUsedFuncs[caller] || usagePaths[caller] {
-							if config.Debug {
-								fmt.Printf("Function %s is actually used in production via caller %s\n",
-									name, caller)
-							}
-							// Mark this function as used in production through the call graph
-							usage := UsageInfo{
-								Pos:      token.NoPos,
-								FilePath: "",
-								IsTest:   false, // This is a non-test usage
-							}
-							result.Usages[name] = append(result.Usages[name], usage)
-							usagePaths[name] = true
-							break
-						}
-					}
-				}
-			}
-		}
-	}
-
-	// Now do a second pass for deeper call chains
-	// Repeat a few times to handle deeply nested call chains
-	for i := 0; i < 3; i++ {
-		for name, declInfo := range result.Declarations {
-			if declInfo.DeclType != DeclFunction && declInfo.DeclType != DeclMethod {
-				continue
-			}
-
-			// Skip if already marked as used
-			if usagePaths[name] || prodUsedFuncs[name] {
-				continue
-			}
-
-			// If this function has test usages only
-			if testUsages := len(result.TestUsages[name]); testUsages > 0 {
-				if prodUsages := len(result.Usages[name]); prodUsages == 0 {
-					// Check if any function that calls this one is used in production
-					if callers, ok := result.CalledBy[name]; ok {
-						for _, caller := range callers {
-							if prodUsedFuncs[caller] || usagePaths[caller] {
-								if config.Debug {
-									fmt.Printf("Function %s is actually used in production via caller %s (pass %d)\n",
-										name, caller, i)
-								}
-								// Mark this function as used in production through the call graph
-								usage := UsageInfo{
-									Pos:      token.NoPos,
-									FilePath: "",
-									IsTest:   false, // This is a non-test usage
-								}
-								result.Usages[name] = append(result.Usages[name], usage)
-								usagePaths[name] = true
-								break
-							}
-						}
-					}
-				}
 			}
 		}
 	}

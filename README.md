@@ -114,71 +114,34 @@ lint:
 
 ### Configuring in .golangci.yml
 
-Intestonly offers several configuration options to customize its behavior for your specific codebase:
+Intestonly offers a simplified configuration with only the essential options:
 
 ```yaml
 linters-settings:
   intestonly:
-    # Whether to check methods (functions with receivers)
-    check-methods: true
+    # Debug mode - enables output of debug information
+    debug: false
 
-    # Whether to ignore unexported identifiers
-    ignore-unexported: false
-
-    # Whether to enable content-based detection
-    enable-content-based-detection: true
-
-    # Whether to exclude test helpers
-    exclude-test-helpers: true
-
-    # Custom patterns for identifying test helpers
-    test-helper-patterns:
-      - assert
-      - mock
-      - fake
-      - stub
-      - setup
-      - cleanup
-
-    # Patterns for files to ignore
-    ignore-file-patterns:
+    # Patterns for files to override as code files - these files will definitely not be considered as test files
+    override-is-code-files:
       - test_helper
       - test_util
       - testutil
       - testhelper
 
-    # Patterns for identifiers to exclude
-    exclude-patterns:
-      - MySpecialCase
-      - LegacyFunction
-
-    # List of explicit test-only identifiers that should always be reported
-    explicit-test-only-identifiers:
-      - testOnlyFunction
-      - TestOnlyType
-      - helperFunction
-
-    # Whether to report explicit test cases regardless of usage
-    report-explicit-test-cases: true
-
-    # Debug mode
-    debug: false
+    # Patterns for files to override as test files - these files will definitely be considered as test files
+    override-is-test-files:
+      - my_test_file.go
+      - custom_test_pattern.go
 ```
 
 #### Configuration Options
 
-| Option | Description | Default |
-|--------|-------------|---------|
-| `check-methods` | Check methods (functions with receivers) | `true` |
-| `ignore-unexported` | Ignore unexported identifiers | `false` |
-| `enable-content-based-detection` | Enable detection based on file contents | `true` |
-| `exclude-test-helpers` | Exclude functions that look like test helpers | `true` |
-| `test-helper-patterns` | Patterns for identifying test helpers | `[assert, mock, fake, stub, ...]` |
-| `ignore-file-patterns` | Patterns for files to ignore | `[test_helper, test_util, ...]` |
-| `exclude-patterns` | Identifiers to always exclude | `[]` |
-| `explicit-test-only-identifiers` | Identifiers that should always be reported | `[testOnlyFunction, ...]` |
-| `report-explicit-test-cases` | Report explicit test cases regardless of usage | `true` |
-| `debug` | Enable debug output | `false` |
+| Option                  | Description                                                                | Default                         |
+|-------------------------|----------------------------------------------------------------------------|--------------------------------|
+| `debug`                 | Enable debug output                                                        | `false`                         |
+| `override-is-code-files`| Patterns for files to definitely consider as code files (not test files)   | `[test_helper, test_util, ...]` |
+| `override-is-test-files`| Patterns for files to definitely consider as test files                    | `[]`                            |
 
 ## Example Output
 

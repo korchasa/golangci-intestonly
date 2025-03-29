@@ -9,65 +9,14 @@ import (
 
 // IntestOnlySettings defines the external configuration structure for integration with golangci-lint
 type IntestOnlySettings struct {
-	// Whether to check methods (functions with receivers)
-	CheckMethods *bool `yaml:"check-methods"`
-
-	// Whether to ignore unexported identifiers
-	IgnoreUnexported *bool `yaml:"ignore-unexported"`
-
-	// Whether to enable content-based usage detection
-	EnableContentBasedDetection *bool `yaml:"enable-content-based-detection"`
-
-	// Whether to exclude test helpers from reporting
-	ExcludeTestHelpers *bool `yaml:"exclude-test-helpers"`
-
-	// Custom patterns for identifying test helpers
-	TestHelperPatterns []string `yaml:"test-helper-patterns"`
-
-	// Patterns for files to ignore in analysis
-	IgnoreFilePatterns []string `yaml:"ignore-file-patterns"`
-
-	// Patterns for identifiers to always exclude from reporting
-	ExcludePatterns []string `yaml:"exclude-patterns"`
-
-	// List of explicit test-only identifiers that should always be reported
-	ExplicitTestOnlyIdentifiers []string `yaml:"explicit-test-only-identifiers"`
-
-	// Whether to report explicit test-only identifiers regardless of usage
-	ReportExplicitTestCases *bool `yaml:"report-explicit-test-cases"`
-
-	// Debug mode
+	// Debug mode - enables output of debug information
 	Debug *bool `yaml:"debug"`
 
-	// Whether to enable type embedding analysis
-	EnableTypeEmbeddingAnalysis *bool `yaml:"enable-type-embedding-analysis"`
+	// Patterns for files to override as code files - these files will definitely not be considered as test files
+	OverrideIsCodeFiles []string `yaml:"override-is-code-files"`
 
-	// Whether to enable reflection usage detection
-	EnableReflectionAnalysis *bool `yaml:"enable-reflection-analysis"`
-
-	// Whether to consider reflection-based access as a usage risk
-	ConsiderReflectionRisky *bool `yaml:"consider-reflection-risky"`
-
-	// Whether to enable detection of registry patterns
-	EnableRegistryPatternDetection *bool `yaml:"enable-registry-pattern-detection"`
-
-	// Whether to enable call graph analysis
-	EnableCallGraphAnalysis *bool `yaml:"enable-call-graph-analysis"`
-
-	// Whether to enable interface implementation detection
-	EnableInterfaceImplementationDetection *bool `yaml:"enable-interface-implementation-detection"`
-
-	// Whether to enable robust cross-package analysis
-	EnableRobustCrossPackageAnalysis *bool `yaml:"enable-robust-cross-package-analysis"`
-
-	// Whether to enable exported identifier handling
-	EnableExportedIdentifierHandling *bool `yaml:"enable-exported-identifier-handling"`
-
-	// Whether to consider exported constants used
-	ConsiderExportedConstantsUsed *bool `yaml:"consider-exported-constants-used"`
-
-	// Additional test files patterns to consider as test files
-	AdditionalTests []string `yaml:"additional-tests"`
+	// Patterns for files to override as test files - these files will definitely be considered as test files
+	OverrideIsTestFiles []string `yaml:"override-is-test-files"`
 }
 
 // BoolPtr returns a pointer to the given bool value
@@ -78,14 +27,18 @@ func BoolPtr(b bool) *bool {
 
 // DefaultConfig returns the default configuration for the analyzer
 func DefaultConfig() *Config {
-	return &Config{
+	config := &Config{
+		// User-configurable options
+		Debug:              false,
+		OverrideIsCodeFiles: defaultIgnoreFilePatterns(),
+		OverrideIsTestFiles:    []string{},
+
+		// Hardcoded options (not configurable by users)
 		CheckMethods:                           true,
 		IgnoreUnexported:                       false,
 		EnableContentBasedDetection:            true,
 		ExcludeTestHelpers:                     true,
-		Debug:                                  true,
 		TestHelperPatterns:                     defaultTestHelperPatterns(),
-		IgnoreFilePatterns:                     defaultIgnoreFilePatterns(),
 		ExcludePatterns:                        []string{},
 		ExplicitTestOnlyIdentifiers:            []string{},
 		ReportExplicitTestCases:                false,
@@ -98,8 +51,12 @@ func DefaultConfig() *Config {
 		EnableRobustCrossPackageAnalysis:       true,
 		EnableExportedIdentifierHandling:       true,
 		ConsiderExportedConstantsUsed:          true,
-		AdditionalTests:                        []string{},
+		IgnoreFiles:                            []string{},
+		IgnoreDirectories:                      []string{},
+		ExplicitTestCases:                      []string{},
+		IgnoreDirPatterns:                      []string{},
 	}
+	return config
 }
 
 // ConvertSettings converts golangci-lint settings to internal configuration
@@ -110,68 +67,15 @@ func ConvertSettings(settings *IntestOnlySettings) *Config {
 
 	config := DefaultConfig()
 
-	// Convert booleans with default value checks
-	if settings.CheckMethods != nil {
-		config.CheckMethods = *settings.CheckMethods
-	}
-	if settings.IgnoreUnexported != nil {
-		config.IgnoreUnexported = *settings.IgnoreUnexported
-	}
-	if settings.EnableContentBasedDetection != nil {
-		config.EnableContentBasedDetection = *settings.EnableContentBasedDetection
-	}
-	if settings.ExcludeTestHelpers != nil {
-		config.ExcludeTestHelpers = *settings.ExcludeTestHelpers
-	}
+	// Convert only the user-configurable options
 	if settings.Debug != nil {
 		config.Debug = *settings.Debug
 	}
-	if settings.ReportExplicitTestCases != nil {
-		config.ReportExplicitTestCases = *settings.ReportExplicitTestCases
+	if settings.OverrideIsCodeFiles != nil {
+		config.OverrideIsCodeFiles = settings.OverrideIsCodeFiles
 	}
-	if settings.EnableTypeEmbeddingAnalysis != nil {
-		config.EnableTypeEmbeddingAnalysis = *settings.EnableTypeEmbeddingAnalysis
-	}
-	if settings.EnableReflectionAnalysis != nil {
-		config.EnableReflectionAnalysis = *settings.EnableReflectionAnalysis
-	}
-	if settings.ConsiderReflectionRisky != nil {
-		config.ConsiderReflectionRisky = *settings.ConsiderReflectionRisky
-	}
-	if settings.EnableRegistryPatternDetection != nil {
-		config.EnableRegistryPatternDetection = *settings.EnableRegistryPatternDetection
-	}
-	if settings.EnableCallGraphAnalysis != nil {
-		config.EnableCallGraphAnalysis = *settings.EnableCallGraphAnalysis
-	}
-	if settings.EnableInterfaceImplementationDetection != nil {
-		config.EnableInterfaceImplementationDetection = *settings.EnableInterfaceImplementationDetection
-	}
-	if settings.EnableRobustCrossPackageAnalysis != nil {
-		config.EnableRobustCrossPackageAnalysis = *settings.EnableRobustCrossPackageAnalysis
-	}
-	if settings.EnableExportedIdentifierHandling != nil {
-		config.EnableExportedIdentifierHandling = *settings.EnableExportedIdentifierHandling
-	}
-	if settings.ConsiderExportedConstantsUsed != nil {
-		config.ConsiderExportedConstantsUsed = *settings.ConsiderExportedConstantsUsed
-	}
-
-	// Convert slices with nil checks
-	if settings.TestHelperPatterns != nil {
-		config.TestHelperPatterns = settings.TestHelperPatterns
-	}
-	if settings.IgnoreFilePatterns != nil {
-		config.IgnoreFilePatterns = settings.IgnoreFilePatterns
-	}
-	if settings.ExcludePatterns != nil {
-		config.ExcludePatterns = settings.ExcludePatterns
-	}
-	if settings.ExplicitTestOnlyIdentifiers != nil {
-		config.ExplicitTestOnlyIdentifiers = settings.ExplicitTestOnlyIdentifiers
-	}
-	if settings.AdditionalTests != nil {
-		config.AdditionalTests = settings.AdditionalTests
+	if settings.OverrideIsTestFiles != nil {
+		config.OverrideIsTestFiles = settings.OverrideIsTestFiles
 	}
 
 	return config
@@ -180,8 +84,14 @@ func ConvertSettings(settings *IntestOnlySettings) *Config {
 // getConfig creates a config based on analyzer flags and external settings
 func getConfig(pass *analysis.Pass) *Config {
 	// In a real golangci-lint integration, we would get settings from the linter context
-	// For now, just return the default configuration
-	return DefaultConfig()
+	// For now, just return the default configuration with some modifications for tests
+	config := DefaultConfig()
+
+	// Disable ConsiderExportedConstantsUsed for tests to ensure we correctly identify
+	// constants that are only used in tests
+	config.ConsiderExportedConstantsUsed = false
+
+	return config
 }
 
 // shouldIgnoreFile returns true if the file should be ignored for analysis
@@ -189,8 +99,8 @@ func shouldIgnoreFile(filename string, config *Config) bool {
 	// Ignore files that are named like test helpers
 	base := filepath.Base(filename)
 
-	// Check against configured file patterns to ignore
-	for _, pattern := range config.IgnoreFilePatterns {
+	// Check against configured file patterns to override as code files
+	for _, pattern := range config.OverrideIsCodeFiles {
 		if strings.Contains(base, pattern) {
 			return true
 		}
@@ -282,16 +192,49 @@ func isTestFile(filename string, config *Config) bool {
 		return true
 	}
 
-	// Check additional test file patterns from configuration
+	// Check patterns for files to override as test files from configuration
 	if config != nil {
-		for _, pattern := range config.AdditionalTests {
-			if strings.Contains(filename, pattern) {
+		for _, pattern := range config.OverrideIsTestFiles {
+			if matchWildcard(filename, pattern) || matchWildcard(base, pattern) {
 				return true
 			}
 		}
 	}
 
 	return false
+}
+
+// matchWildcard performs simple wildcard matching.
+// It supports the '*' character to match any sequence of characters.
+func matchWildcard(s, pattern string) bool {
+	// If the pattern doesn't contain a wildcard, use simple contains check
+	if !strings.Contains(pattern, "*") {
+		return strings.Contains(s, pattern)
+	}
+
+	// Split the pattern by '*' to get parts
+	parts := strings.Split(pattern, "*")
+
+	// Special case: pattern starts with '*'
+	if pattern[0] == '*' {
+		// If pattern is just "*", it matches everything
+		if len(parts) == 2 && parts[1] == "" {
+			return true
+		}
+
+		// Check if the string ends with the part after '*'
+		return strings.HasSuffix(s, parts[1])
+	}
+
+	// Special case: pattern ends with '*'
+	if pattern[len(pattern)-1] == '*' {
+		// Check if the string starts with the part before '*'
+		return strings.HasPrefix(s, parts[0])
+	}
+
+	// Pattern has '*' in the middle
+	// Check if the string starts with the first part and ends with the last part
+	return strings.HasPrefix(s, parts[0]) && strings.HasSuffix(s, parts[len(parts)-1])
 }
 
 // defaultTestHelperPatterns returns the default patterns for identifying test helpers
@@ -318,7 +261,7 @@ func defaultTestHelperPatterns() []string {
 	}
 }
 
-// defaultIgnoreFilePatterns returns the default patterns for files to ignore
+// defaultIgnoreFilePatterns returns the default patterns for files to override as code files
 func defaultIgnoreFilePatterns() []string {
 	return []string{
 		"test_helper",
