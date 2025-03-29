@@ -111,10 +111,15 @@ func findImplementors(pass *analysis.Pass, result *AnalysisResult, config *Confi
 					}
 
 					// If interface is used in production code, mark implementation as used
-					if _, usedInProd := result.NonTestUsages[interfaceName]; usedInProd {
+					if _, usedInProd := result.Usages[interfaceName]; usedInProd {
 						// Mark type as used in production
-						if _, exists := result.NonTestUsages[typeName]; !exists {
-							result.NonTestUsages[typeName] = []token.Pos{token.NoPos}
+						if _, exists := result.Usages[typeName]; !exists {
+							usage := UsageInfo{
+								Pos:      token.NoPos,
+								FilePath: "",
+								IsTest:   false,
+							}
+							result.Usages[typeName] = append(result.Usages[typeName], usage)
 							if config.Debug {
 								fmt.Printf("Marking %s as used in production because it implements %s\n",
 									typeName, interfaceName)
@@ -127,8 +132,13 @@ func findImplementors(pass *analysis.Pass, result *AnalysisResult, config *Confi
 
 							// Check if this method exists for this type
 							if methodExists(qualifiedMethod, result) {
-								if _, exists := result.NonTestUsages[qualifiedMethod]; !exists {
-									result.NonTestUsages[qualifiedMethod] = []token.Pos{token.NoPos}
+								if _, exists := result.Usages[qualifiedMethod]; !exists {
+									usage := UsageInfo{
+										Pos:      token.NoPos,
+										FilePath: "",
+										IsTest:   false,
+									}
+									result.Usages[qualifiedMethod] = append(result.Usages[qualifiedMethod], usage)
 									if config.Debug {
 										fmt.Printf("Marking method %s as used in production\n", qualifiedMethod)
 									}
@@ -141,7 +151,12 @@ func findImplementors(pass *analysis.Pass, result *AnalysisResult, config *Confi
 					if isTest {
 						if _, exists := result.TestUsages[typeName]; exists {
 							if _, marked := result.TestUsages[interfaceName]; !marked {
-								result.TestUsages[interfaceName] = []token.Pos{token.NoPos}
+								usage := UsageInfo{
+									Pos:      token.NoPos,
+									FilePath: "",
+									IsTest:   true,
+								}
+								result.TestUsages[interfaceName] = append(result.TestUsages[interfaceName], usage)
 								if config.Debug {
 									fmt.Printf("Marking interface %s as used in tests due to implementation %s\n",
 										interfaceName, typeName)
@@ -254,30 +269,93 @@ func methodExists(qualifiedMethod string, result *AnalysisResult) bool {
 func propagateInterfaceUsages(result *AnalysisResult, config *Config) {
 	// Process each interface
 	for interfaceName, implementations := range result.Implementations {
+		// Check if the interface is used via the call graph
+		if config.Debug {
+			fmt.Printf("Analyzing interface %s with %d implementations\n",
+				interfaceName, len(implementations))
+		}
+
 		// If the interface is used in tests only
 		if _, usedInTests := result.TestUsages[interfaceName]; usedInTests {
-			if _, usedInProd := result.NonTestUsages[interfaceName]; !usedInProd {
+			if _, usedInProd := result.Usages[interfaceName]; !usedInProd {
 				// For each implementation, check if it's used in production
 				for _, implType := range implementations {
-					if _, usedInProd := result.NonTestUsages[implType]; usedInProd {
+					if _, usedInProd := result.Usages[implType]; usedInProd {
 						// Mark interface as used in production since its implementation is
-						result.NonTestUsages[interfaceName] = []token.Pos{token.NoPos}
+						usage := UsageInfo{
+							Pos:      token.NoPos,
+							FilePath: "",
+							IsTest:   false,
+						}
+						result.Usages[interfaceName] = append(result.Usages[interfaceName], usage)
 						if config.Debug {
 							fmt.Printf("Marking interface %s as used in production due to implementation %s\n",
 								interfaceName, implType)
 						}
 						break
 					}
+
+					// Check if any methods of this implementation are used in production code
+					// via the call graph
+					if methods, ok := result.Interfaces[interfaceName]; ok {
+						for _, method := range methods {
+							qualifiedMethod := implType + "." + method
+							if methodExists(qualifiedMethod, result) {
+								// Check if this method is used in production (either directly or via call graph)
+								if _, directlyUsed := result.Usages[qualifiedMethod]; directlyUsed {
+									usage := UsageInfo{
+										Pos:      token.NoPos,
+										FilePath: "",
+										IsTest:   false,
+									}
+									result.Usages[interfaceName] = append(result.Usages[interfaceName], usage)
+
+									if config.Debug {
+										fmt.Printf("Marking interface %s as used in production due to method %s\n",
+											interfaceName, qualifiedMethod)
+									}
+									break
+								}
+
+								// Check if the method is called by production code via the call graph
+								if callers, hasCalls := result.CalledBy[qualifiedMethod]; hasCalls {
+									for _, caller := range callers {
+										// If the caller is used in production code, mark interface as used
+										if _, callerInProd := result.Usages[caller]; callerInProd {
+											usage := UsageInfo{
+												Pos:      token.NoPos,
+												FilePath: "",
+												IsTest:   false,
+											}
+											result.Usages[interfaceName] = append(result.Usages[interfaceName], usage)
+
+											if config.Debug {
+												fmt.Printf("Marking interface %s as used in production via call graph (caller: %s)\n",
+													interfaceName, caller)
+											}
+											break
+										}
+									}
+								}
+							}
+						}
+					}
 				}
 			}
 		}
 
 		// If the interface is used in production
-		if _, usedInProd := result.NonTestUsages[interfaceName]; usedInProd {
+		if _, usedInProd := result.Usages[interfaceName]; usedInProd {
 			// All implementations must be considered used in production
 			for _, implType := range implementations {
-				if _, exists := result.NonTestUsages[implType]; !exists {
-					result.NonTestUsages[implType] = []token.Pos{token.NoPos}
+				// Mark implementation as used in production
+				if _, exists := result.Usages[implType]; !exists {
+					usage := UsageInfo{
+						Pos:      token.NoPos,
+						FilePath: "",
+						IsTest:   false,
+					}
+					result.Usages[implType] = append(result.Usages[implType], usage)
 					if config.Debug {
 						fmt.Printf("Marking implementation %s as used in production due to interface %s\n",
 							implType, interfaceName)
@@ -289,8 +367,13 @@ func propagateInterfaceUsages(result *AnalysisResult, config *Config) {
 					for _, method := range methods {
 						qualifiedMethod := implType + "." + method
 						if methodExists(qualifiedMethod, result) {
-							if _, exists := result.NonTestUsages[qualifiedMethod]; !exists {
-								result.NonTestUsages[qualifiedMethod] = []token.Pos{token.NoPos}
+							if _, exists := result.Usages[qualifiedMethod]; !exists {
+								usage := UsageInfo{
+									Pos:      token.NoPos,
+									FilePath: "",
+									IsTest:   false,
+								}
+								result.Usages[qualifiedMethod] = append(result.Usages[qualifiedMethod], usage)
 								if config.Debug {
 									fmt.Printf("Marking method %s as used in production\n", qualifiedMethod)
 								}
@@ -299,95 +382,73 @@ func propagateInterfaceUsages(result *AnalysisResult, config *Config) {
 					}
 				}
 			}
-		}
-	}
-}
+		} else {
+			// The interface is not directly used in production
+			// Check if any methods are being called on a variable of interface type
+			// by looking at the call graph
+			callsViaInterface := false
 
-// trackInterfaceUsage tracks where interfaces and implementing types are used
-//
-//nolint:unused // Will be used in future implementation
-func trackInterfaceUsage(pass *analysis.Pass, result *AnalysisResult, config *Config) {
-	for _, file := range pass.Files {
-		fileName := pass.Fset.File(file.Pos()).Name()
-		isTest := isTestFile(fileName, config)
+			if methods, ok := result.Interfaces[interfaceName]; ok {
+				for _, method := range methods {
+					// For each method in the interface, check if it's called by production code
+					for implType := range result.MethodsOfType {
+						qualifiedMethod := implType + "." + method
 
-		// Skip test files - we're only collecting interfaces from non-test code
-		if isTest {
-			continue
-		}
+						// Check if this method exists and is called by production code
+						if methodExists(qualifiedMethod, result) {
+							if callers, hasCalls := result.CalledBy[qualifiedMethod]; hasCalls {
+								for _, caller := range callers {
+									// If the caller is used in production, mark as used via call graph
+									if _, callerInProd := result.Usages[caller]; callerInProd {
+										callsViaInterface = true
 
-		// Find all type declarations
-		ast.Inspect(file, func(n ast.Node) bool {
-			typeSpec, ok := n.(*ast.TypeSpec)
-			if !ok || typeSpec.Name == nil {
-				return true
-			}
-
-			typeName := typeSpec.Name.Name
-
-			// Skip interfaces themselves
-			if _, isIntf := typeSpec.Type.(*ast.InterfaceType); isIntf {
-				return true
-			}
-
-			// Get methods for this type
-			collectMethodsForType(pass, file, typeName, result, config)
-
-			// Check if this type implements any known interfaces
-			for interfaceName, interfaceMethods := range result.Interfaces {
-				// Check if this type implements the interface
-				if implementsInterface(typeName, interfaceMethods, result) {
-					// Add to implementations map
-					result.Implementations[interfaceName] = append(
-						result.Implementations[interfaceName], typeName)
-
-					if config.Debug {
-						fmt.Printf("Type %s implements interface %s\n", typeName, interfaceName)
-					}
-
-					// If interface is used in production code, mark implementation as used
-					if _, usedInProd := result.NonTestUsages[interfaceName]; usedInProd {
-						// Mark type as used in production
-						if _, exists := result.NonTestUsages[typeName]; !exists {
-							result.NonTestUsages[typeName] = []token.Pos{token.NoPos}
-							if config.Debug {
-								fmt.Printf("Marking %s as used in production because it implements %s\n",
-									typeName, interfaceName)
-							}
-						}
-
-						// Also mark its methods as used in production
-						for _, method := range interfaceMethods {
-							qualifiedMethod := typeName + "." + method
-
-							// Check if this method exists for this type
-							if methodExists(qualifiedMethod, result) {
-								if _, exists := result.NonTestUsages[qualifiedMethod]; !exists {
-									result.NonTestUsages[qualifiedMethod] = []token.Pos{token.NoPos}
-									if config.Debug {
-										fmt.Printf("Marking method %s as used in production\n", qualifiedMethod)
+										if config.Debug {
+											fmt.Printf("Interface %s is used in production via call to %s from %s\n",
+												interfaceName, qualifiedMethod, caller)
+										}
+										break
 									}
 								}
 							}
 						}
+
+						if callsViaInterface {
+							break
+						}
 					}
 
-					// If type is used in tests, also mark the interface as used in tests
-					if isTest {
-						if _, exists := result.TestUsages[typeName]; exists {
-							if _, marked := result.TestUsages[interfaceName]; !marked {
-								result.TestUsages[interfaceName] = []token.Pos{token.NoPos}
-								if config.Debug {
-									fmt.Printf("Marking interface %s as used in tests due to implementation %s\n",
-										interfaceName, typeName)
-								}
-							}
-						}
+					if callsViaInterface {
+						break
 					}
 				}
 			}
 
-			return true
-		})
+			// If we found calls via the interface, mark it and its implementations as used
+			if callsViaInterface {
+				// Mark interface as used in production
+				usage := UsageInfo{
+					Pos:      token.NoPos,
+					FilePath: "",
+					IsTest:   false,
+				}
+				result.Usages[interfaceName] = append(result.Usages[interfaceName], usage)
+
+				// Mark all implementations as used in production
+				for _, implType := range implementations {
+					if _, exists := result.Usages[implType]; !exists {
+						implUsage := UsageInfo{
+							Pos:      token.NoPos,
+							FilePath: "",
+							IsTest:   false,
+						}
+						result.Usages[implType] = append(result.Usages[implType], implUsage)
+
+						if config.Debug {
+							fmt.Printf("Marking implementation %s as used in production via call graph\n", implType)
+						}
+					}
+				}
+			}
+		}
 	}
 }

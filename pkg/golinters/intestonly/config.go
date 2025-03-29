@@ -83,7 +83,7 @@ func DefaultConfig() *Config {
 		IgnoreUnexported:                       false,
 		EnableContentBasedDetection:            true,
 		ExcludeTestHelpers:                     true,
-		Debug:                                  false,
+		Debug:                                  true,
 		TestHelperPatterns:                     defaultTestHelperPatterns(),
 		IgnoreFilePatterns:                     defaultIgnoreFilePatterns(),
 		ExcludePatterns:                        []string{},
@@ -201,11 +201,24 @@ func shouldIgnoreFile(filename string, config *Config) bool {
 
 // isTestHelperIdentifier returns true if the identifier name looks like a test helper
 func isTestHelperIdentifier(name string, config *Config) bool {
+	// Check for specific test prefixes
+	if strings.HasPrefix(name, "Test") || strings.HasPrefix(name, "test") {
+		return true
+	}
+
+	// Check for specific test suffixes
+	if strings.HasSuffix(name, "Test") || strings.HasSuffix(name, "test") {
+		return true
+	}
+
+	// Check against configured patterns
+	lowerName := strings.ToLower(name)
 	for _, pattern := range config.TestHelperPatterns {
-		if matchesPattern(name, pattern) {
+		if strings.Contains(lowerName, strings.ToLower(pattern)) {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -262,15 +275,14 @@ func matchesPattern(name, pattern string) bool {
 	return strings.Contains(strings.ToLower(name), strings.ToLower(pattern))
 }
 
-// isTestFile returns true if the file is a test file
+// isTestFile returns true if the file is a test file based on its base name ending with '_test.go'
 func isTestFile(filename string, config *Config) bool {
-	// Check for the word "test" in any case in the filename
-	lowerFilename := strings.ToLower(filename)
-	if strings.Contains(lowerFilename, "test") {
+	base := filepath.Base(filename)
+	if strings.HasSuffix(base, "_test.go") {
 		return true
 	}
 
-	// Check additional test files from configuration
+	// Check additional test file patterns from configuration
 	if config != nil {
 		for _, pattern := range config.AdditionalTests {
 			if strings.Contains(filename, pattern) {
@@ -293,6 +305,16 @@ func defaultTestHelperPatterns() []string {
 		"cleanup",
 		"testhelper",
 		"mockdb",
+		"helper",
+		"fixture",
+		"util",
+		"wrapper",
+		"prepare",
+		"test",
+		"env",
+		"equal",
+		"expectation",
+		"harness",
 	}
 }
 

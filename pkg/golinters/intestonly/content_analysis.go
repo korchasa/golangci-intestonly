@@ -37,13 +37,19 @@ func analyzeFileContent(fileName string, result *AnalysisResult, config *Config)
 
 	contentStr := string(fileContent)
 
-	// Check for declaration names in the content
-	for name := range result.Declarations {
+	// Check for declaration names in the content, but skip if the declaration is in the same file
+	for name, decl := range result.Declarations {
+		if decl.FilePath == fileName {
+			continue
+		}
 		if strings.Contains(contentStr, name) {
 			// Mark as potentially used in non-test code
-			if len(result.NonTestUsages[name]) == 0 {
-				result.NonTestUsages[name] = append(result.NonTestUsages[name], token.NoPos)
+			usage := UsageInfo{
+				Pos:      token.NoPos,
+				FilePath: fileName,
+				IsTest:   false,
 			}
+			result.Usages[name] = append(result.Usages[name], usage)
 		}
 	}
 }

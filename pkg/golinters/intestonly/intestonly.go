@@ -3,6 +3,7 @@ package intestonly
 
 import (
 	"fmt"
+	"reflect"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
@@ -18,6 +19,7 @@ var Analyzer = &analysis.Analyzer{
 	},
 	FactTypes:        []analysis.Fact{},
 	RunDespiteErrors: true,
+	ResultType:       reflect.TypeOf((*AnalysisResult)(nil)),
 }
 
 // run is the main entry point for the analyzer
@@ -47,10 +49,8 @@ func run(pass *analysis.Pass) (interface{}, error) {
 		analyzeInterfaceImplementations(pass, result, config)
 	}
 
-	// Step 3: If enabled, build call graph
-	if config.EnableCallGraphAnalysis {
-		buildCallGraph(pass, result, config)
-	}
+	// Step 3: Always build call graph (required for cross-package analysis)
+	buildCallGraph(pass, result, config)
 
 	// Step 4: If enabled, process export status
 	if config.EnableExportedIdentifierHandling {
@@ -60,27 +60,26 @@ func run(pass *analysis.Pass) (interface{}, error) {
 	// Step 5: Analyze usages (now using the unified system)
 	analyzeUsages(pass, result, config)
 
-	// Step 6: Process cross-package references (enhanced if enabled)
-	if config.EnableRobustCrossPackageAnalysis {
-		analyzeRobustCrossPackageReferences(pass, result, config)
-	} else {
-		analyzeCrossPackageReferences(pass, result, config)
-	}
+	// Step 6: Process cross-package references using call graph information
+	analyzeCrossPackageReferences(pass, result, config)
 
-	// Step 7: Additional content-based analysis if enabled
+	// Step 7: Analyze string references to detect functions mentioned in strings
+	analyzeStringReferences(pass, result, config)
+
+	// Step 8: Additional content-based analysis if enabled
 	if config.EnableContentBasedDetection {
 		analyzeContentBasedUsages(pass, result, config)
 	}
 
-	// Step 8: Generate and report issues
+	// Step 9: Decide which items are used only in tests
 	issues := generateIssues(pass, result, config)
+
+	// Report all issues
 	for _, issue := range issues {
-		// Use ToAnalysisIssue to convert the issue to a standard diagnostic
-		diag := issue.ToAnalysisIssue(pass)
-		pass.Report(diag)
+		pass.Report(issue.ToAnalysisIssue(pass))
 	}
 
-	return nil, nil
+	return result, nil
 }
 
 // AnalyzePackage analyzes the package and returns issues.
@@ -108,10 +107,8 @@ func AnalyzePackage(pass *analysis.Pass, config *Config) []Issue {
 		analyzeInterfaceImplementations(pass, result, config)
 	}
 
-	// Step 3: If enabled, build call graph
-	if config.EnableCallGraphAnalysis {
-		buildCallGraph(pass, result, config)
-	}
+	// Step 3: Always build call graph (required for cross-package analysis)
+	buildCallGraph(pass, result, config)
 
 	// Step 4: If enabled, process export status
 	if config.EnableExportedIdentifierHandling {
@@ -121,18 +118,17 @@ func AnalyzePackage(pass *analysis.Pass, config *Config) []Issue {
 	// Step 5: Analyze usages (now using the unified system)
 	analyzeUsages(pass, result, config)
 
-	// Step 6: Process cross-package references (enhanced if enabled)
-	if config.EnableRobustCrossPackageAnalysis {
-		analyzeRobustCrossPackageReferences(pass, result, config)
-	} else {
-		analyzeCrossPackageReferences(pass, result, config)
-	}
+	// Step 6: Process cross-package references using call graph information
+	analyzeCrossPackageReferences(pass, result, config)
 
-	// Step 7: Additional content-based analysis if enabled
+	// Step 7: Analyze string references to detect functions mentioned in strings
+	analyzeStringReferences(pass, result, config)
+
+	// Step 8: Additional content-based analysis if enabled
 	if config.EnableContentBasedDetection {
 		analyzeContentBasedUsages(pass, result, config)
 	}
 
-	// Step 8: Generate issues
+	// Step 9: Generate issues
 	return generateIssues(pass, result, config)
 }

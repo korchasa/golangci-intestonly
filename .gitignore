@@ -2,3 +2,7 @@
 memory
 bin
 spec
+.aider*
+.cursor
+.junie
+.idea
